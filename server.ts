@@ -1514,12 +1514,21 @@ async function startServer() {
                 console.warn('[SERVER update-designer-status Supabase notice]:', supErr?.message || supErr);
               }
 
-              // Always ensure designer record exists in designers table with newStatus
+              // Always ensure designer record exists in designers table with newStatus and full identity
               try {
-                const finalPhone = clean10 || extraPhone10 || '';
-                const finalEmail = targetEmail || (cleanKey.includes('@') ? cleanKey : '');
-                const finalId = rawId || finalPhone || finalEmail || cleanKey;
-                const finalName = payload.name || 'Designer';
+                // Fetch existing row or login history details to get full phone/email
+                const { data: existingRows } = await serverSupabase
+                  .from('designers')
+                  .select('*')
+                  .or(orFilters.join(','))
+                  .limit(1);
+
+                const existingRow = existingRows && existingRows[0] ? existingRows[0] : {};
+
+                const finalPhone = clean10 || extraPhone10 || (existingRow.phone ? existingRow.phone.replace(/\D/g, '').slice(-10) : '');
+                const finalEmail = targetEmail || (cleanKey.includes('@') ? cleanKey : '') || existingRow.email || '';
+                const finalId = rawId || existingRow.id || finalEmail || finalPhone || cleanKey;
+                const finalName = payload.name || existingRow.name || 'Designer';
                 
                 await serverSupabase.from('designers').upsert({
                   id: finalId,
@@ -1527,13 +1536,13 @@ async function startServer() {
                   phone: finalPhone,
                   email: finalEmail,
                   identifier: finalEmail || finalPhone || finalId,
-                  portfolio: payload.portfolio || '',
-                  specialization: payload.software || payload.skills || 'Graphic Design',
-                  skills: Array.isArray(payload.skills) ? payload.skills : [payload.software || payload.skills || 'Graphic Design'],
-                  exp: payload.experience || payload.skills || 'Graphic Design',
+                  portfolio: payload.portfolio || existingRow.portfolio || '',
+                  specialization: payload.software || payload.skills || existingRow.specialization || 'Graphic Design',
+                  skills: Array.isArray(payload.skills) ? payload.skills : [payload.software || payload.skills || existingRow.skills || 'Graphic Design'],
+                  exp: payload.experience || payload.skills || existingRow.exp || 'Graphic Design',
                   status: newStatus,
-                  avatar: payload.avatar || payload.photo || '',
-                  createdat: new Date().toISOString()
+                  avatar: payload.avatar || payload.photo || existingRow.avatar || '',
+                  createdat: existingRow.createdat || new Date().toISOString()
                 }, { onConflict: 'id' });
               } catch (upsertErr: any) {
                 console.warn('[SERVER update-designer-status upsert notice]:', upsertErr?.message || upsertErr);
@@ -1755,45 +1764,97 @@ async function startServer() {
               console.warn('[SERVER /api/get-designers signatures notice]:', sigErr?.message);
             }
 
-            const designersList = rawDesignersList
-              .filter(d => {
-                if (!d) return false;
-                const em = (d.email || d.identifier || '').toString().trim().toLowerCase();
-                const ph = (d.phone || d.identifier || '').toString().replace(/\D/g, '').slice(-10);
-                const id = (d.id || '').toString().trim().toLowerCase();
-                if (em && serverDeletedDesignerSet.has(em)) return false;
-                if (ph && serverDeletedDesignerSet.has(ph)) return false;
-                if (id && serverDeletedDesignerSet.has(id)) return false;
-                return true;
-              })
-              .map(d => {
-                const em = (d.email || d.identifier || '').toString().trim().toLowerCase();
-                const ph = (d.phone || d.identifier || '').toString().replace(/\D/g, '').slice(-10);
-                const id = (d.id || '').toString().trim().toLowerCase();
-                const sig = (ph && signaturesMap[ph]) || (em && signaturesMap[em]) || (id && signaturesMap[id]) || d.signatureDataUrl || d.signature || '';
-                
-                const skillsVal = (Array.isArray(d.skills) && d.skills.length > 0) 
-                  ? d.skills.join(', ') 
-                  : (d.skills || d.specialization || d.exp || (Array.isArray(d.software) && d.software.length > 0 ? d.software.join(', ') : d.software) || 'Graphic Design').toString().trim();
-                
-                const portfolioVal = (d.portfolio || d.portfolioUrl || d.portfoliolink || '').toString().trim();
-                const avatarVal = (d.avatar || d.photo || d.avatarUrl || '').toString().trim();
+            // Deduplicate rawDesignersList by grouping matching designers by phone/email/id
+            const deduplicatedMap = new Map<string, any>();
 
-                return {
-                  ...d,
-                  skills: skillsVal,
-                  specialization: d.specialization || skillsVal,
-                  exp: d.exp || skillsVal,
-                  software: Array.isArray(d.software) ? d.software : (skillsVal ? skillsVal.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
-                  portfolio: portfolioVal,
-                  portfolioUrl: portfolioVal,
-                  avatar: avatarVal,
-                  photo: avatarVal,
-                  status: d.status || (d.isapproved ? 'Approved' : 'Pending'),
-                  signature: sig,
-                  signatureDataUrl: sig
-                };
-              });
+            rawDesignersList.forEach(d => {
+              if (!d) return;
+              const em = (d.email || (d.identifier && d.identifier.includes('@') ? d.identifier : '') || '').toString().trim().toLowerCase();
+              const ph = (d.phone || d.identifier || '').toString().replace(/\D/g, '').slice(-10);
+              const id = (d.id || '').toString().trim();
+              if (em && serverDeletedDesignerSet.has(em)) return;
+              if (ph && serverDeletedDesignerSet.has(ph)) return;
+              if (id && serverDeletedDesignerSet.has(id)) return;
+
+              // Find existing group in map
+              let groupKey = ph || em || id;
+              let existing: any = null;
+
+              for (const [k, v] of deduplicatedMap.entries()) {
+                const vPh = (v.phone || '').toString().replace(/\D/g, '').slice(-10);
+                const vEm = (v.email || '').toString().trim().toLowerCase();
+                if ((ph && ph.length === 10 && vPh === ph) || (em && em.includes('@') && vEm === em) || (id && v.id === id)) {
+                  existing = v;
+                  groupKey = k;
+                  break;
+                }
+              }
+
+              const dStatus = d.status || (d.isapproved || d.isApproved ? 'Approved' : 'Pending');
+              const isAppr = dStatus === 'Approved' || d.isapproved === true || d.isApproved === true;
+
+              if (!existing) {
+                deduplicatedMap.set(groupKey, {
+                  id: id || ph || em,
+                  name: d.name || 'Designer',
+                  phone: ph,
+                  email: em,
+                  identifier: em || ph || id,
+                  status: isAppr ? 'Approved' : 'Pending',
+                  isapproved: isAppr,
+                  portfolio: d.portfolio || d.portfolioUrl || d.portfoliolink || '',
+                  skills: d.skills || d.specialization || d.software || 'Graphic Design',
+                  specialization: d.specialization || d.skills || 'Graphic Design',
+                  exp: d.exp || d.skills || 'Graphic Design',
+                  software: d.software || [],
+                  avatar: d.avatar || d.photo || d.avatarUrl || '',
+                  signature: d.signature || d.signatureDataUrl || '',
+                  createdat: d.createdat || d.timestamp || new Date().toISOString()
+                });
+              } else {
+                // Merge fields into existing
+                if (!existing.phone && ph) existing.phone = ph;
+                if (!existing.email && em) existing.email = em;
+                if (!existing.name || existing.name === 'Designer') existing.name = d.name || existing.name;
+                if (!existing.portfolio) existing.portfolio = d.portfolio || d.portfolioUrl || d.portfoliolink || '';
+                if (!existing.avatar) existing.avatar = d.avatar || d.photo || d.avatarUrl || '';
+                if (!existing.signature) existing.signature = d.signature || d.signatureDataUrl || '';
+                if (isAppr) {
+                  existing.status = 'Approved';
+                  existing.isapproved = true;
+                }
+              }
+            });
+
+            const designersList = Array.from(deduplicatedMap.values()).map(d => {
+              const em = (d.email || '').toString().trim().toLowerCase();
+              const ph = (d.phone || '').toString().replace(/\D/g, '').slice(-10);
+              const id = (d.id || '').toString().trim().toLowerCase();
+              const sig = (ph && signaturesMap[ph]) || (em && signaturesMap[em]) || (id && signaturesMap[id]) || d.signature || '';
+              
+              const skillsVal = (Array.isArray(d.skills) && d.skills.length > 0) 
+                ? d.skills.join(', ') 
+                : (d.skills || d.specialization || d.exp || (Array.isArray(d.software) && d.software.length > 0 ? d.software.join(', ') : d.software) || 'Graphic Design').toString().trim();
+              
+              const portfolioVal = (d.portfolio || '').toString().trim();
+              const avatarVal = (d.avatar || '').toString().trim();
+
+              return {
+                ...d,
+                skills: skillsVal,
+                specialization: d.specialization || skillsVal,
+                exp: d.exp || skillsVal,
+                software: Array.isArray(d.software) ? d.software : (skillsVal ? skillsVal.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+                portfolio: portfolioVal,
+                portfolioUrl: portfolioVal,
+                avatar: avatarVal,
+                photo: avatarVal,
+                status: d.status || (d.isapproved ? 'Approved' : 'Pending'),
+                isapproved: d.status === 'Approved' || d.isapproved === true,
+                signature: sig,
+                signatureDataUrl: sig
+              };
+            });
 
             cachedDesignersData = designersList;
             cachedDesignersTime = Date.now();
