@@ -176,33 +176,34 @@ async function sendMailWithFallback(options: SendMailOptions): Promise<{ success
     targetRecipient = 'designquixo@gmail.com';
   }
 
-  // 0. Try Resend API (Verified Domain alerts@designquixo.in)
-  const resendKey = (process.env.RESEND_API_KEY || '').trim() || 
-    (typeof Buffer !== 'undefined' ? Buffer.from('cmVfNVFRaU1uZTdfOGsyYmNLQkhxcEtYb1hnOEJReHBmRTd4', 'base64').toString('utf-8') : '');
-  try {
-    const resendResp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: `"${options.fromName || 'Design Quixo Security'}" <alerts@designquixo.in>`,
-        to: [targetRecipient],
-        subject: options.subject,
-        html: options.html
-      })
-    });
+  // 0. Try Resend API (new configured key or environment variable)
+  const resendKey = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
+  if (resendKey && resendKey.startsWith('re_') && resendKey.length > 20) {
+    try {
+      const resendResp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: `"${options.fromName || 'Design Quixo Security'}" <alerts@designquixo.in>`,
+          to: [targetRecipient],
+          subject: options.subject,
+          html: options.html
+        })
+      });
 
-    if (resendResp.ok) {
-      console.log(`[RESEND API DELIVERED] Dispatched to: ${targetRecipient} from alerts@designquixo.in`);
-      return { success: true, via: 'resend-api' };
-    } else {
-      const errData = await resendResp.json().catch(() => ({}));
-      console.error('[SERVER RESEND API FAIL]:', errData);
+      if (resendResp.ok) {
+        console.log(`[RESEND API DELIVERED] Dispatched to: ${targetRecipient} from alerts@designquixo.in`);
+        return { success: true, via: 'resend-api' };
+      } else {
+        const errData = await resendResp.json().catch(() => ({}));
+        console.warn('[Resend API Notice]:', errData?.message || errData);
+      }
+    } catch (e: any) {
+      console.warn('[Resend API fetch notice]:', e?.message);
     }
-  } catch (e: any) {
-    console.error('[Resend API fetch error]:', e?.message);
   }
 
   initMailPools();
