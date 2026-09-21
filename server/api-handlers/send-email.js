@@ -28,8 +28,7 @@ export default async function handler(req, res) {
     let emailSent = false;
     let resendErrorDetails = '';
     let smtpErrorDetails = '';
-    const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 
-      (typeof Buffer !== 'undefined' ? Buffer.from('cmVfNVFRaU1uZTdfOGsyYmNLQkhxcEtYb1hnOEJReHBmRTd4', 'base64').toString('utf-8') : '');
+    const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
 
     // 1. Try Primary GoDaddy SMTP (Port 465 SSL)
     try {
@@ -95,7 +94,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Try Resend API (if valid key)
+    // 3. Try Resend API (if valid key configured)
     if (!emailSent && RESEND_KEY && RESEND_KEY.startsWith('re_') && RESEND_KEY.length > 20) {
       try {
         const resendResp = await fetch("https://api.resend.com/emails", {

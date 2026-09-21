@@ -1,7 +1,6 @@
 import nodemailer from 'nodemailer';
 
-const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 
-  (typeof Buffer !== 'undefined' ? Buffer.from('cmVfNVFRaU1uZTdfOGsyYmNLQkhxcEtYb1hnOEJReHBmRTd4', 'base64').toString('utf-8') : '');
+const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
 
 async function sendSingleEmail({ to, subject, html, text, fromName = 'Design Quixo Operations' }) {
   const cleanTo = (to || '').toString().trim().toLowerCase();
@@ -9,28 +8,30 @@ async function sendSingleEmail({ to, subject, html, text, fromName = 'Design Qui
     return { success: false, error: 'Invalid email' };
   }
 
-  // 1. Try Resend API
-  try {
-    const resendResp = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: `${fromName} <alerts@designquixo.in>`,
-        to: [cleanTo],
-        subject,
-        html,
-        text
-      })
-    });
+  // 1. Try Resend API (if valid key configured)
+  if (RESEND_KEY && RESEND_KEY.startsWith('re_') && RESEND_KEY.length > 20) {
+    try {
+      const resendResp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: `${fromName} <alerts@designquixo.in>`,
+          to: [cleanTo],
+          subject,
+          html,
+          text
+        })
+      });
 
-    if (resendResp.ok) {
-      return { success: true, via: 'resend' };
+      if (resendResp.ok) {
+        return { success: true, via: 'resend' };
+      }
+    } catch (err) {
+      console.warn('[Resend notify-job-accepted notice]:', err?.message);
     }
-  } catch (err) {
-    console.warn('[Resend notify-job-accepted notice]:', err?.message);
   }
 
   // 2. Fallback SMTP

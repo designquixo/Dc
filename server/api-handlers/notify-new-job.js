@@ -1,7 +1,6 @@
 import nodemailer from 'nodemailer';
 
-const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 
-  (typeof Buffer !== 'undefined' ? Buffer.from('cmVfNVFRaU1uZTdfOGsyYmNLQkhxcEtYb1hnOEJReHBmRTd4', 'base64').toString('utf-8') : '');
+const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://xdfzbfdfbdrhftfjhvbc.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkZnpiZmRmYmRyaGZ0ZmpodmJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIwNDcyNTUsImV4cCI6MjA1NzYyMzI1NX0.xZ5yC_T9rU_M4zF8lP-Nq3_aF1Q3K5q2r_s1t7u_w6x';
@@ -12,28 +11,30 @@ async function sendSingleEmail({ to, subject, html, text, fromName = 'Design Qui
     return { success: false, error: 'Invalid email' };
   }
 
-  // 1. Try Resend API
-  try {
-    const resendResp = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: `${fromName} <alerts@designquixo.in>`,
-        to: [cleanTo],
-        subject,
-        html,
-        text
-      })
-    });
+  // 1. Try Resend API (if valid key configured)
+  if (RESEND_KEY && RESEND_KEY.startsWith('re_') && RESEND_KEY.length > 20) {
+    try {
+      const resendResp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: `${fromName} <alerts@designquixo.in>`,
+          to: [cleanTo],
+          subject,
+          html,
+          text
+        })
+      });
 
-    if (resendResp.ok) {
-      return { success: true, via: 'resend' };
+      if (resendResp.ok) {
+        return { success: true, via: 'resend' };
+      }
+    } catch (err) {
+      console.warn('[Resend notify-new-job notice]:', err?.message);
     }
-  } catch (err) {
-    console.warn('[Resend notify-new-job notice]:', err?.message);
   }
 
   // 2. Fallback SMTP

@@ -1,8 +1,7 @@
 import { getPgPool, inMemoryOtpStore } from './_db.js';
 import nodemailer from 'nodemailer';
 
-const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 
-  (typeof Buffer !== 'undefined' ? Buffer.from('cmVfNVFRaU1uZTdfOGsyYmNLQkhxcEtYb1hnOEJReHBmRTd4', 'base64').toString('utf-8') : '');
+const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
 
 const SMTP_HOST = process.env.SMTP_HOST || 'smtpout.secureserver.net';
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
