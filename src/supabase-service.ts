@@ -449,7 +449,7 @@ export const DQSupabase = {
       status: normalizedJob.status || 'Pending',
       description: [
         normalizedJob.brief || normalizedJob.details || '',
-        refImg ? `Ref Image: ${refImg}` : '',
+        refImg ? `Ref Image: [START]${refImg}[END]` : '',
         normalizedJob.ratio ? `Ratio: ${normalizedJob.ratio}` : ''
       ].filter(Boolean).join(' | '),
       assigned_to: normalizedJob.assignedTo || '',
@@ -1483,22 +1483,23 @@ export const DQSupabase = {
         }
       } catch (e) {}
 
-      const tagStr = JSON.stringify({
+      const metaPayload = {
         image: service.image || meta.image || '',
         sla: service.sla || meta.sla || '30-45 mins',
         ratio: service.ratio || meta.ratio || 'Standard',
         slug: service.slug || meta.slug || '',
-        category: service.category || meta.category || ''
-      });
+        category: service.category || meta.category || '',
+        description: service.description || service.desc || ''
+      };
 
       await supabase.from('services').upsert({
         id: service.id,
-        name: service.title || service.name || service.id,
+        title: service.title || service.name || service.id,
         price: Number(service.price) || 359,
         icon: service.icon || 'palette',
-        description: service.description || service.desc || '',
-        tag: tagStr,
-        features: [service.image || meta.image || '']
+        description: JSON.stringify(metaPayload),
+        category: service.category || metaPayload.category || 'General',
+        features: [service.image || meta.image || '', JSON.stringify(metaPayload)]
       });
     } catch (e) {
       console.warn('Supabase saveService error:', e);
@@ -1527,25 +1528,38 @@ export const DQSupabase = {
         const parsed = dbRows.filter((row: any) => row && row.id && !row.id.startsWith('sys_')).map(row => {
           let meta: any = {};
           try {
-            if (row.tag && typeof row.tag === 'string' && row.tag.startsWith('{')) {
+            if (row.description && typeof row.description === 'string' && row.description.startsWith('{')) {
+              meta = JSON.parse(row.description);
+            } else if (row.tag && typeof row.tag === 'string' && row.tag.startsWith('{')) {
               meta = JSON.parse(row.tag);
             }
           } catch (e) {}
 
+          if (!meta.image && Array.isArray(row.features)) {
+            for (const f of row.features) {
+              if (typeof f === 'string' && f.startsWith('{')) {
+                try { meta = { ...meta, ...JSON.parse(f) }; } catch(e) {}
+              } else if (typeof f === 'string' && f && !meta.image) {
+                meta.image = f;
+              }
+            }
+          }
+
           const image = meta.image || (Array.isArray(row.features) && row.features[0] ? row.features[0] : '');
+          const descText = meta.description || (typeof row.description === 'string' && !row.description.startsWith('{') ? row.description : '');
 
           return {
             id: row.id,
-            title: row.name || row.id,
-            name: row.name || row.id,
+            title: row.title || row.name || row.id,
+            name: row.title || row.name || row.id,
             price: Number(row.price) || 359,
             icon: row.icon || 'palette',
-            description: row.description || '',
-            desc: row.description || '',
+            description: descText,
+            desc: descText,
             sla: meta.sla || '30-45 mins',
             ratio: meta.ratio || 'Standard',
             slug: meta.slug || '',
-            category: meta.category || '',
+            category: row.category || meta.category || '',
             image: image
           };
         });
@@ -1720,10 +1734,11 @@ export const DQSupabase = {
       // 1. Persist directly to Supabase services table under sys_google_reviews
       await supabase.from('services').upsert({
         id: 'sys_google_reviews',
-        name: 'System Reviews Data Store',
+        title: 'System Reviews Data Store',
         price: 0,
-        tag: JSON.stringify(local),
-        description: 'Cloud storage for all verified client reviews'
+        icon: 'star',
+        description: JSON.stringify(local),
+        category: 'System'
       });
 
       // 2. Call server API to persist to reviews.json as well
@@ -1752,10 +1767,11 @@ export const DQSupabase = {
       // 1. Update Supabase
       await supabase.from('services').upsert({
         id: 'sys_google_reviews',
-        name: 'System Reviews Data Store',
+        title: 'System Reviews Data Store',
         price: 0,
-        tag: JSON.stringify(local),
-        description: 'Cloud storage for all verified client reviews'
+        icon: 'star',
+        description: JSON.stringify(local),
+        category: 'System'
       });
 
       // 2. Update server API
@@ -1781,12 +1797,13 @@ export const DQSupabase = {
       // 1. Try Supabase cloud table first
       const { data: setRow } = await supabase
         .from('services')
-        .select('tag')
+        .select('*')
         .eq('id', 'sys_google_reviews')
         .maybeSingle();
 
-      if (setRow && setRow.tag) {
-        const parsed = typeof setRow.tag === 'string' ? JSON.parse(setRow.tag) : setRow.tag;
+      if (setRow && (setRow.description || (setRow as any).tag)) {
+        const rawData = setRow.description || (setRow as any).tag;
+        const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
         if (Array.isArray(parsed) && parsed.length > 0) {
           localStorage.setItem('dq_google_reviews', JSON.stringify(parsed));
           window.dispatchEvent(new CustomEvent('dq_reviews_updated', { detail: parsed }));
@@ -1820,12 +1837,13 @@ export const DQSupabase = {
       try {
         const { data: setRow } = await supabase
           .from('services')
-          .select('tag')
+          .select('*')
           .eq('id', 'sys_google_reviews')
           .maybeSingle();
 
-        if (setRow && setRow.tag) {
-          const parsed = typeof setRow.tag === 'string' ? JSON.parse(setRow.tag) : setRow.tag;
+        if (setRow && (setRow.description || (setRow as any).tag)) {
+          const rawData = setRow.description || (setRow as any).tag;
+          const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
           if (Array.isArray(parsed) && parsed.length > 0) {
             localStorage.setItem('dq_google_reviews', JSON.stringify(parsed));
             window.dispatchEvent(new CustomEvent('dq_reviews_updated', { detail: parsed }));
