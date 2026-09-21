@@ -28,73 +28,9 @@ export default async function handler(req, res) {
     let emailSent = false;
     let resendErrorDetails = '';
     let smtpErrorDetails = '';
-    const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
+    const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_PwCHnmJ5_HMud46KA8tr5bWWbnaMKnmoW';
 
-    // 1. Try Primary GoDaddy SMTP (Port 465 SSL)
-    try {
-      const transporter465 = nodemailer.createTransport({
-        host: 'smtpout.secureserver.net',
-        port: 465,
-        secure: true,
-        auth: {
-          user: 'alerts@designquixo.in',
-          pass: '@Bilal@777'
-        },
-        tls: { rejectUnauthorized: false },
-        connectionTimeout: 6000,
-        greetingTimeout: 6000,
-        socketTimeout: 6000,
-        dnsTimeout: 4000
-      });
-
-      await transporter465.sendMail({
-        from: '"Design Quixo" <alerts@designquixo.in>',
-        to: to,
-        subject: subject,
-        html: html,
-        text: text
-      });
-      emailSent = true;
-      console.log('[GoDaddy SMTP 465 Success]: Dispatched via secureserver.net');
-    } catch (smtpErr) {
-      smtpErrorDetails = smtpErr.message;
-      console.warn('[GoDaddy SMTP 465 Warning]:', smtpErr?.message);
-    }
-
-    // 2. Try Secondary GoDaddy SMTP (Port 587 STARTTLS)
-    if (!emailSent) {
-      try {
-        const transporter587 = nodemailer.createTransport({
-          host: 'smtpout.secureserver.net',
-          port: 587,
-          secure: false,
-          auth: {
-            user: 'alerts@designquixo.in',
-            pass: '@Bilal@777'
-          },
-          tls: { rejectUnauthorized: false },
-          connectionTimeout: 6000,
-          greetingTimeout: 6000,
-          socketTimeout: 6000,
-          dnsTimeout: 4000
-        });
-
-        await transporter587.sendMail({
-          from: '"Design Quixo" <alerts@designquixo.in>',
-          to: to,
-          subject: subject,
-          html: html,
-          text: text
-        });
-        emailSent = true;
-        console.log('[GoDaddy SMTP 587 Success]: Dispatched via secureserver.net');
-      } catch (smtp587Err) {
-        smtpErrorDetails += ' | ' + smtp587Err.message;
-        console.warn('[GoDaddy SMTP 587 Warning]:', smtp587Err?.message);
-      }
-    }
-
-    // 3. Try Resend API (if valid key configured)
+    // 1. Try Primary Resend High-Speed REST API (Port 443 HTTPS - Instant & Vercel compatible)
     if (!emailSent && RESEND_KEY && RESEND_KEY.startsWith('re_') && RESEND_KEY.length > 20) {
       try {
         const resendResp = await fetch("https://api.resend.com/emails", {
@@ -118,9 +54,77 @@ export default async function handler(req, res) {
         } else {
           const errData = await resendResp.json().catch(() => ({}));
           resendErrorDetails = errData.message || JSON.stringify(errData);
+          console.warn('[Resend API Notice]:', resendErrorDetails);
         }
       } catch (resendErr) {
         resendErrorDetails = resendErr.message;
+        console.warn('[Resend API fetch notice]:', resendErr?.message);
+      }
+    }
+
+    // 2. Try Secondary GoDaddy SMTP (Port 465 SSL)
+    if (!emailSent) {
+      try {
+        const transporter465 = nodemailer.createTransport({
+          host: 'smtpout.secureserver.net',
+          port: 465,
+          secure: true,
+          auth: {
+            user: 'alerts@designquixo.in',
+            pass: '@Bilal@777'
+          },
+          tls: { rejectUnauthorized: false },
+          connectionTimeout: 4000,
+          greetingTimeout: 4000,
+          socketTimeout: 4000,
+          dnsTimeout: 3000
+        });
+
+        await transporter465.sendMail({
+          from: '"Design Quixo" <alerts@designquixo.in>',
+          to: to,
+          subject: subject,
+          html: html,
+          text: text
+        });
+        emailSent = true;
+        console.log('[GoDaddy SMTP 465 Success]: Dispatched via secureserver.net');
+      } catch (smtpErr) {
+        smtpErrorDetails = smtpErr.message;
+        console.warn('[GoDaddy SMTP 465 Warning]:', smtpErr?.message);
+      }
+    }
+
+    // 3. Try Tertiary GoDaddy SMTP (Port 587 STARTTLS)
+    if (!emailSent) {
+      try {
+        const transporter587 = nodemailer.createTransport({
+          host: 'smtpout.secureserver.net',
+          port: 587,
+          secure: false,
+          auth: {
+            user: 'alerts@designquixo.in',
+            pass: '@Bilal@777'
+          },
+          tls: { rejectUnauthorized: false },
+          connectionTimeout: 4000,
+          greetingTimeout: 4000,
+          socketTimeout: 4000,
+          dnsTimeout: 3000
+        });
+
+        await transporter587.sendMail({
+          from: '"Design Quixo" <alerts@designquixo.in>',
+          to: to,
+          subject: subject,
+          html: html,
+          text: text
+        });
+        emailSent = true;
+        console.log('[GoDaddy SMTP 587 Success]: Dispatched via secureserver.net');
+      } catch (smtp587Err) {
+        smtpErrorDetails += ' | ' + smtp587Err.message;
+        console.warn('[GoDaddy SMTP 587 Warning]:', smtp587Err?.message);
       }
     }
 

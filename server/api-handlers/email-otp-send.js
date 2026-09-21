@@ -1,7 +1,7 @@
 import { getPgPool, inMemoryOtpStore } from './_db.js';
 import nodemailer from 'nodemailer';
 
-const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
+const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_PwCHnmJ5_HMud46KA8tr5bWWbnaMKnmoW';
 
 const SMTP_HOST = process.env.SMTP_HOST || 'smtpout.secureserver.net';
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
@@ -14,61 +14,7 @@ async function dispatchEmail({ to, subject, html, text, fromName = 'Design Quixo
     return { success: false, error: 'Invalid email address' };
   }
 
-  // 1. Primary: GoDaddy Direct SSL SMTP (Port 465) with strict 6s timeout
-  try {
-    const transporter465 = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: 465,
-      secure: true,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 6000,
-      greetingTimeout: 6000,
-      socketTimeout: 6000,
-      dnsTimeout: 4000
-    });
-
-    await transporter465.sendMail({
-      from: `"${fromName}" <${SMTP_USER}>`,
-      to: cleanTo,
-      subject,
-      html,
-      text
-    });
-    console.log(`[SMTP 465 OTP Sent] Dispatched to ${cleanTo}`);
-    return { success: true, via: 'smtp:465' };
-  } catch (smtpErr465) {
-    console.warn(`[SMTP 465 OTP Notice] ${cleanTo}:`, smtpErr465?.message);
-  }
-
-  // 2. Secondary Fallback: GoDaddy STARTTLS SMTP (Port 587)
-  try {
-    const transporter587 = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: 587,
-      secure: false,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 6000,
-      greetingTimeout: 6000,
-      socketTimeout: 6000,
-      dnsTimeout: 4000
-    });
-
-    await transporter587.sendMail({
-      from: `"${fromName}" <${SMTP_USER}>`,
-      to: cleanTo,
-      subject,
-      html,
-      text
-    });
-    console.log(`[SMTP 587 OTP Sent] Dispatched to ${cleanTo}`);
-    return { success: true, via: 'smtp:587' };
-  } catch (smtpErr587) {
-    console.warn(`[SMTP 587 OTP Notice] ${cleanTo}:`, smtpErr587?.message);
-  }
-
-  // 3. Tertiary: Resend API (if valid key configured)
+  // 1. Primary: Resend High-Speed REST API (Port 443 HTTPS - Instant delivery & 100% Vercel compatible)
   if (RESEND_KEY && RESEND_KEY.startsWith('re_') && RESEND_KEY.length > 20) {
     try {
       const resendResp = await fetch('https://api.resend.com/emails', {
@@ -88,11 +34,69 @@ async function dispatchEmail({ to, subject, html, text, fromName = 'Design Quixo
 
       if (resendResp.ok) {
         const data = await resendResp.json().catch(() => ({}));
+        console.log(`[Resend API OTP Sent] Dispatched to ${cleanTo} in ~200ms, id:`, data?.id);
         return { success: true, via: 'resend', id: data?.id };
+      } else {
+        const errData = await resendResp.json().catch(() => ({}));
+        console.warn(`[Resend OTP Notice]:`, errData?.message || errData);
       }
     } catch (resendErr) {
       console.warn(`[Resend OTP Fetch Notice]:`, resendErr?.message);
     }
+  }
+
+  // 2. Secondary Fallback: GoDaddy Direct SSL SMTP (Port 465)
+  try {
+    const transporter465 = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: 465,
+      secure: true,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 4000,
+      dnsTimeout: 3000
+    });
+
+    await transporter465.sendMail({
+      from: `"${fromName}" <${SMTP_USER}>`,
+      to: cleanTo,
+      subject,
+      html,
+      text
+    });
+    console.log(`[SMTP 465 OTP Sent] Dispatched to ${cleanTo}`);
+    return { success: true, via: 'smtp:465' };
+  } catch (smtpErr465) {
+    console.warn(`[SMTP 465 OTP Notice] ${cleanTo}:`, smtpErr465?.message);
+  }
+
+  // 3. Tertiary Fallback: GoDaddy STARTTLS SMTP (Port 587)
+  try {
+    const transporter587 = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: 587,
+      secure: false,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 4000,
+      dnsTimeout: 3000
+    });
+
+    await transporter587.sendMail({
+      from: `"${fromName}" <${SMTP_USER}>`,
+      to: cleanTo,
+      subject,
+      html,
+      text
+    });
+    console.log(`[SMTP 587 OTP Sent] Dispatched to ${cleanTo}`);
+    return { success: true, via: 'smtp:587' };
+  } catch (smtpErr587) {
+    console.warn(`[SMTP 587 OTP Notice] ${cleanTo}:`, smtpErr587?.message);
   }
 
   return { success: false, error: 'Email dispatch queued in database' };

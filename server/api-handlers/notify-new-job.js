@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
+const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_PwCHnmJ5_HMud46KA8tr5bWWbnaMKnmoW';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://xdfzbfdfbdrhftfjhvbc.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkZnpiZmRmYmRyaGZ0ZmpodmJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIwNDcyNTUsImV4cCI6MjA1NzYyMzI1NX0.xZ5yC_T9rU_M4zF8lP-Nq3_aF1Q3K5q2r_s1t7u_w6x';

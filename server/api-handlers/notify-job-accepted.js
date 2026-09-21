@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_SZ8SXywT_3paNeFGDHSXmNSefukNzxaBE';
+const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim() || 're_PwCHnmJ5_HMud46KA8tr5bWWbnaMKnmoW';
 
 async function sendSingleEmail({ to, subject, html, text, fromName = 'Design Quixo Operations' }) {
   const cleanTo = (to || '').toString().trim().toLowerCase();
