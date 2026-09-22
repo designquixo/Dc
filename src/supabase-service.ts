@@ -1483,13 +1483,22 @@ export const DQSupabase = {
         }
       } catch (e) {}
 
+      let cleanDescText = service.description || service.desc || '';
+      if (typeof cleanDescText === 'string' && cleanDescText.trim().startsWith('{')) {
+        try {
+          const p = JSON.parse(cleanDescText);
+          if (p && p.description) cleanDescText = p.description;
+          else cleanDescText = '';
+        } catch (e) {}
+      }
+
       const metaPayload = {
         image: service.image || meta.image || '',
         sla: service.sla || meta.sla || '30-45 mins',
         ratio: service.ratio || meta.ratio || 'Standard',
         slug: service.slug || meta.slug || '',
         category: service.category || meta.category || '',
-        description: service.description || service.desc || ''
+        description: cleanDescText
       };
 
       await supabase.from('services').upsert({
@@ -1497,7 +1506,7 @@ export const DQSupabase = {
         title: service.title || service.name || service.id,
         price: Number(service.price) || 359,
         icon: service.icon || 'palette',
-        description: JSON.stringify(metaPayload),
+        description: cleanDescText,
         category: service.category || metaPayload.category || 'General',
         features: [service.image || meta.image || '', JSON.stringify(metaPayload)]
       });
@@ -1546,7 +1555,15 @@ export const DQSupabase = {
           }
 
           const image = meta.image || (Array.isArray(row.features) && row.features[0] ? row.features[0] : '');
-          const descText = meta.description || (typeof row.description === 'string' && !row.description.startsWith('{') ? row.description : '');
+          let descText = meta.description || (typeof row.description === 'string' && !row.description.startsWith('{') ? row.description : '');
+          if (typeof descText === 'string' && descText.trim().startsWith('{')) {
+            try {
+              const p = JSON.parse(descText);
+              descText = p.description || '';
+            } catch (e) {
+              descText = '';
+            }
+          }
 
           return {
             id: row.id,
