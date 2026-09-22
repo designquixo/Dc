@@ -3587,7 +3587,13 @@
             const price = Number(s.price) || 499;
             const sla = s.sla || '45-60 mins';
             const title = s.title || 'Design Service';
-            const desc = s.description || s.desc || '';
+            let desc = s.description || s.desc || '';
+            if (typeof desc === 'string' && desc.trim().startsWith('{')) {
+              try {
+                const p = JSON.parse(desc);
+                desc = p.description || '';
+              } catch(e) { desc = ''; }
+            }
             const ratio = s.ratio || 'Standard';
 
             return `
@@ -3643,7 +3649,11 @@
           document.getElementById('edit-svc-title').value = s.title || '';
           document.getElementById('edit-svc-price').value = s.price || 499;
           document.getElementById('edit-svc-sla').value = s.sla || '45-60 mins';
-          document.getElementById('edit-svc-desc').value = s.description || s.desc || '';
+          let descVal = s.description || s.desc || '';
+          if (typeof descVal === 'string' && descVal.trim().startsWith('{')) {
+            try { descVal = JSON.parse(descVal).description || ''; } catch(e) { descVal = ''; }
+          }
+          document.getElementById('edit-svc-desc').value = descVal;
           document.getElementById('edit-svc-ratio').value = s.ratio || 'Standard';
           
           const img = s.image || 'social_media.png';
