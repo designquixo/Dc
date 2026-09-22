@@ -934,6 +934,11 @@
             const sla = s.sla || '30-45 mins';
             const img = s.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
 
+            let descText = s.description || s.desc || '';
+            if (typeof descText === 'string' && descText.trim().startsWith('{')) {
+              try { descText = JSON.parse(descText).description || ''; } catch(e) { descText = ''; }
+            }
+
             return `
               <div class="group rounded-2xl sm:rounded-3xl bg-white border border-slate-200 overflow-hidden hover:border-blue-300 hover:shadow-md transition-all flex flex-col justify-between shadow-xs">
                 <div>
@@ -955,7 +960,7 @@
                       <h3 class="text-sm sm:text-xl font-extrabold text-slate-950 font-['Space_Grotesk'] leading-snug tracking-tight">${s.title}</h3>
                     </div>
 
-                    <p class="text-xs sm:text-sm font-semibold text-slate-700 leading-snug line-clamp-2 sm:line-clamp-none">${s.description || ''}</p>
+                    <p class="text-xs sm:text-sm font-semibold text-slate-700 leading-snug line-clamp-2 sm:line-clamp-none">${descText}</p>
                   </div>
                 </div>
 
