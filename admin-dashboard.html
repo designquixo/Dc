@@ -2631,12 +2631,12 @@
             let refImgUrl = job.referenceImage || job.referenceimage || job.reference_image || job.refImage || job.image || job.sampleImage || job.reference || job.imageUrl || (Array.isArray(job.attachments) ? job.attachments[0] : null);
             if (!refImgUrl) {
               const descSearch = (job.description || job.details || job.brief || '').toString();
-              if (descSearch.includes('Ref Image:')) {
-                const mStart = descSearch.match(/Ref Image:\s*\[START\]([\s\S]*?)\[END\]/i);
+              if (descSearch.includes('Ref Image:') || descSearch.includes('[START]')) {
+                const mStart = descSearch.match(/(?:Ref Image:\s*)?\[(?:START|IMAGE_DATA_START)\]([\s\S]*?)\[(?:END|IMAGE_DATA_END)\]/i);
                 if (mStart && mStart[1]) {
                   refImgUrl = mStart[1].trim();
                 } else {
-                  const m = descSearch.match(/Ref Image:\s*([^\s|]+)/i) || descSearch.match(/Ref Image:\s*([^\r\n|]+)/i);
+                  const m = descSearch.match(/Ref Image:\s*(data:image\/[^\s|]+|https?:\/\/[^\s|]+)/i) || descSearch.match(/Ref Image:\s*([^\s|]+)/i) || descSearch.match(/Ref Image:\s*([^\r\n|]+)/i);
                   if (m && m[1]) refImgUrl = m[1].trim();
                 }
               }
@@ -3117,6 +3117,126 @@
           return null;
         }
 
+        async function fetchJobsDirectFromSupabase() {
+          try {
+            const db = window.DQSupabase || window.DQFirebase;
+            const SUPABASE_URL = (db && db.url) ? db.url : 'https://gzbwvleuuxyidohujibj.supabase.co';
+            const SUPABASE_ANON_KEY = (db && db.key) ? db.key : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk';
+
+            let rawJobs = null;
+            try {
+              const apiRes = await fetch('/api/get-jobs', { cache: 'no-store' });
+              if (apiRes.ok) {
+                const json = await apiRes.json();
+                if (json && Array.isArray(json.jobs)) {
+                  rawJobs = json.jobs;
+                }
+              }
+            } catch(e) {}
+
+            if (!rawJobs) {
+              const res = await fetch(`${SUPABASE_URL}/rest/v1/jobs?select=*&status=neq.Deleted`, {
+                headers: {
+                  'apikey': SUPABASE_ANON_KEY,
+                  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                cache: 'no-store'
+              });
+              if (res.ok) {
+                rawJobs = await res.json();
+              }
+            }
+
+            if (Array.isArray(rawJobs)) {
+              let deletedJobs = [];
+              try { deletedJobs = JSON.parse(localStorage.getItem('dq_deleted_jobs') || '[]'); } catch(e) {}
+              const deletedNormSet = new Set(deletedJobs.map(d => (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(d) : d.toString().trim().toUpperCase()));
+
+              const cleanedJobs = [];
+              rawJobs.forEach(sj => {
+                const rawId = (sj.id || sj.jobId || '').toString().trim();
+                if (!rawId) return;
+                const normId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(rawId) : rawId.toUpperCase();
+                if (deletedNormSet.has(normId)) return;
+
+                const isComp = (sj.status || '').toLowerCase().includes('completed') || (sj.status || '').toLowerCase().includes('delivered');
+                
+                let rawImgUrl = sj.referenceImage || sj.referenceimage || sj.image || sj.reference_image || sj.refImage || sj.sampleImage || sj.reference || '';
+                const descStr = (sj.description || sj.brief || sj.details || '').toString();
+                if (!rawImgUrl && descStr.includes('Ref Image:')) {
+                  const mStart = descStr.match(/Ref Image:\s*\[START\]([\s\S]*?)\[END\]/i);
+                  if (mStart && mStart[1]) {
+                    rawImgUrl = mStart[1].trim();
+                  } else {
+                    const m = descStr.match(/Ref Image:\s*(data:image\/[^\s|]+|[^\s|]+)/i) || descStr.match(/Ref Image:\s*([^\r\n|]+)/i);
+                    if (m && m[1]) rawImgUrl = m[1].trim();
+                  }
+                }
+                if (rawImgUrl && typeof rawImgUrl === 'string' && rawImgUrl.toLowerCase().startsWith('data:image')) {
+                  rawImgUrl = rawImgUrl.replace(/[\r\n\s]+/g, '');
+                }
+
+                let cleanBrief = sj.brief || sj.details || descStr;
+                if (cleanBrief && typeof cleanBrief === 'string' && cleanBrief.includes('Ref Image:')) {
+                  cleanBrief = cleanBrief.split(' | Ref Image:')[0].replace(/Ref Image:\s*\[START\][\s\S]*?\[END\]/gi, '').replace(/Ref Image:[^\s|]+/gi, '').trim();
+                }
+
+                let ratioVal = sj.ratio || '';
+                if (!ratioVal && descStr.includes('Ratio:')) {
+                  const rMatch = descStr.match(/Ratio:\s*([^|]+)/i);
+                  if (rMatch && rMatch[1]) ratioVal = rMatch[1].trim();
+                }
+
+                let clientName = sj.clientName || sj.clientname || '';
+                let clientPhone = sj.phone || sj.whatsapp || sj.clientPhone || '';
+                if (!clientPhone && sj.client) {
+                  const parts = sj.client.split('(');
+                  clientName = clientName || parts[0].trim();
+                  if (parts[1]) clientPhone = parts[1].replace(/[^0-9+]/g, '');
+                }
+
+                const categoryVal = sj.category || sj.service || 'Graphic Design';
+                const titleVal = sj.title || sj.project || sj.projectName || categoryVal;
+                const budgetVal = Number(sj.budget || sj.price || 399);
+                const accepted = sj.acceptedBy || sj.acceptedby || (sj.designer ? [sj.designer] : (sj.assigned_to ? [sj.assigned_to] : []));
+
+                cleanedJobs.push({
+                  id: normId,
+                  service: categoryVal,
+                  project: titleVal,
+                  projectName: titleVal,
+                  clientName: clientName || 'Client',
+                  phone: clientPhone,
+                  whatsapp: clientPhone,
+                  brief: cleanBrief,
+                  details: cleanBrief,
+                  ratio: ratioVal || '1:1',
+                  price: budgetVal,
+                  budget: budgetVal,
+                  time: sj.deadline || sj.time || 'Active',
+                  status: sj.status || 'Pending',
+                  completed: isComp,
+                  acceptedBy: Array.isArray(accepted) ? accepted : [accepted].filter(Boolean),
+                  referenceImage: rawImgUrl,
+                  referenceimage: rawImgUrl,
+                  image: rawImgUrl,
+                  refImage: rawImgUrl
+                });
+              });
+
+              const finalJobs = (window.DQStore && window.DQStore.deduplicateJobs)
+                ? window.DQStore.deduplicateJobs(cleanedJobs)
+                : cleanedJobs;
+
+              localStorage.setItem('dq_live_jobs', JSON.stringify(finalJobs));
+              renderAdminJobs();
+              renderAdminEarnings();
+            }
+          } catch (err) {
+            console.warn('fetchJobsDirectFromSupabase notice:', err);
+          }
+        }
+
         // 3. UNIFIED CLOUD MASTER SYNC (FETCHES DESIGNERS & ORDERS VIA REALTIME SUPABASE)
         async function syncAdminAllFromCloud() {
           const db = window.DQSupabase || window.DQFirebase;
@@ -3124,6 +3244,7 @@
           if (!db) {
             // Direct REST API fetch as immediate un-skippable fallback baseline when SDK is not yet ready
             await fetchDesignersDirectFromSupabase();
+            await fetchJobsDirectFromSupabase();
             return;
           }
 
@@ -3148,9 +3269,12 @@
                 renderAdminJobs();
                 renderAdminEarnings();
               }
+            } else {
+              await fetchJobsDirectFromSupabase();
             }
           } catch(errJ) {
             console.warn('Sync jobs error:', errJ);
+            await fetchJobsDirectFromSupabase();
           }
 
           // (C) Sync City Addresses from Supabase
