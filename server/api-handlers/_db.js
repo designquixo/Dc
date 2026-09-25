@@ -59,6 +59,76 @@ export async function querySupabaseRest(sqlText, params = []) {
       const res = await fetch(endpoint, { headers });
       if (res.ok) {
         const rows = await res.json().catch(() => []);
+        if (Array.isArray(rows) && table === 'jobs') {
+          // Parse Supabase job rows so referenceImage, brief, ratio, client info are fully populated
+          const parsedJobs = rows.map(j => {
+            let refImg = j.referenceImage || j.referenceimage || j.image || '';
+            const desc = (j.description || j.brief || j.details || '').toString();
+
+            if (!refImg && desc) {
+              const mTag = desc.match(/(?:Ref Image:\s*)?\[(?:START|IMAGE_DATA_START)\]([\s\S]*?)\[(?:END|IMAGE_DATA_END)\]/i);
+              if (mTag && mTag[1]) {
+                refImg = mTag[1].trim();
+              } else {
+                const mUrl = desc.match(/Ref Image:\s*(data:image\/[^\s|]+|https?:\/\/[^\s|]+)/i);
+                if (mUrl && mUrl[1]) {
+                  refImg = mUrl[1].trim();
+                }
+              }
+            }
+
+            let cleanBrief = desc;
+            if (cleanBrief) {
+              cleanBrief = cleanBrief
+                .replace(/(?:\|\s*)?Ref Image:\s*\[(?:START|IMAGE_DATA_START)\][\s\S]*?\[(?:END|IMAGE_DATA_END)\]/gi, '')
+                .replace(/(?:\|\s*)?Ref Image:\s*(?:data:image\/[^\s|]+|https?:\/\/[^\s|]+)/gi, '')
+                .replace(/(?:\|\s*)?Ratio:[^|]+/gi, '')
+                .trim();
+            }
+
+            let ratio = j.ratio || 'Square (1:1)';
+            const rMatch = desc.match(/Ratio:\s*([^|]+)/i);
+            if (rMatch && rMatch[1]) {
+              ratio = rMatch[1].trim();
+            }
+
+            let clientName = j.clientName || 'Client';
+            let phone = j.phone || j.whatsapp || '';
+            if (j.client) {
+              const parts = j.client.split('(');
+              clientName = parts[0].trim();
+              if (parts[1]) {
+                phone = parts[1].replace(/[^0-9]/g, '');
+              }
+            }
+
+            return {
+              ...j,
+              id: j.id,
+              service: j.category || j.service || j.title || 'Graphic Design',
+              category: j.category || 'Graphic Design',
+              project: j.title || j.project || 'Design Request',
+              title: j.title || 'Design Request',
+              price: Number(j.budget || j.price) || 399,
+              budget: Number(j.budget || j.price) || 399,
+              brief: cleanBrief || 'Design Request',
+              phone: phone,
+              whatsapp: phone,
+              clientName: clientName,
+              ratio: ratio,
+              referenceImage: refImg,
+              referenceimage: refImg,
+              image: refImg,
+              refImage: refImg,
+              status: j.status || 'Pending',
+              acceptedBy: j.designer ? [j.designer] : (Array.isArray(j.acceptedby) ? j.acceptedby : []),
+              completed: (j.status || '').toLowerCase().includes('completed'),
+              time: j.deadline || 'Just now',
+              createdAt: j.created_at || new Date().toISOString()
+            };
+          });
+          return { rows: parsedJobs };
+        }
         return { rows: Array.isArray(rows) ? rows : [] };
       }
       return { rows: [] };
@@ -69,6 +139,7 @@ export async function querySupabaseRest(sqlText, params = []) {
       let table = 'login_history';
       if (lower.includes('from login_history')) table = 'login_history';
       else if (lower.includes('from jobs')) table = 'jobs';
+      else if (lower.includes('from designers')) table = 'designers';
 
       let endpoint = `${SUPABASE_URL}/rest/v1/${table}?`;
       if (lower.includes("role = 'otp_verification'") && params[0]) {
@@ -123,11 +194,8 @@ export async function querySupabaseRest(sqlText, params = []) {
         let portfolio = '';
         let skills = '';
         let status = 'Pending';
-        let role = 'designer';
         let avatar = '';
         let password = 'Designer@123';
-        let signature = '';
-        let dateStr = new Date().toLocaleDateString('en-IN');
 
         if (params.length >= 10) {
           phone = (params[2] || '').toString().trim();
@@ -136,10 +204,7 @@ export async function querySupabaseRest(sqlText, params = []) {
           portfolio = (params[7] || '').toString().trim();
           skills = (params[8] || '').toString().trim();
           status = (params[9] || 'Pending').toString().trim();
-          role = (params[10] || 'designer').toString().trim();
           avatar = (params[11] || params[12] || '').toString().trim();
-          dateStr = (params[13] || dateStr).toString().trim();
-          signature = (params[14] || params[15] || '').toString().trim();
         } else {
           email = (params[2] || '').toString().trim();
           phone = (params[3] || '').toString().trim();
@@ -150,29 +215,22 @@ export async function querySupabaseRest(sqlText, params = []) {
 
         const clean10 = phone.replace(/\D/g, '').slice(-10) || primaryId.replace(/\D/g, '').slice(-10);
         const cleanEm = email.includes('@') ? email : (primaryId.includes('@') ? primaryId : '');
+        const skillsArray = skills ? skills.split(',').map(s => s.trim()).filter(Boolean) : ['Graphic Design'];
 
+        // Strict Supabase designers table schema: [id, name, email, phone, status, specialization, skills, bio, exp, portfolio, rating, reviews, jobscompleted, hourlyrate, response_time, avatar, createdat, password, identifier]
         payload = {
-          id: primaryId || clean10 || cleanEm || `DES-${Date.now()}`,
+          id: clean10 || cleanEm || primaryId || `DES-${Date.now()}`,
           name: name || 'Designer',
-          phone: clean10 || phone || '',
-          email: cleanEm || email || '',
+          phone: clean10 || '',
+          email: cleanEm || '',
+          status: status || 'Pending',
           specialization: skills || 'Graphic Design',
-          skills: skills || 'Photoshop, Illustrator',
+          skills: skillsArray.length > 0 ? skillsArray : ['Graphic Design'],
           portfolio: portfolio || '',
           avatar: avatar || null,
-          avatar_url: avatar || null,
-          status: status || 'Pending',
-          role: role || 'designer',
-          created_at: new Date().toISOString(),
           createdat: new Date().toISOString(),
-          date: dateStr,
-          password: password,
-          pin: password,
-          identifier: cleanEm || clean10 || primaryId,
-          signature: signature || '',
-          signaturedataurl: signature || '',
-          agreementsigned: true,
-          agreementsigneddate: dateStr
+          password: password || 'Designer@123',
+          identifier: cleanEm || clean10 || primaryId
         };
       } else if (table === 'jobs') {
         const cleanId = (params[0] || '').toString().trim();
@@ -181,7 +239,7 @@ export async function querySupabaseRest(sqlText, params = []) {
         const price = Number(params[3]) || 399;
         const brief = (params[4] || '').toString().trim();
         const phone = (params[5] || '').toString().trim();
-        const whatsapp = (params[6] || '').toString().trim();
+        const whatsapp = (params[6] || phone || '').toString().trim();
         const ratio = (params[7] || 'Square (1:1)').toString().trim();
         const refImg = (params[8] || '').toString().trim();
         const status = (params[9] || 'Pending').toString().trim();
@@ -189,39 +247,26 @@ export async function querySupabaseRest(sqlText, params = []) {
         try {
           acceptedBy = typeof params[10] === 'string' ? JSON.parse(params[10]) : (Array.isArray(params[10]) ? params[10] : []);
         } catch(e) {}
-        const completed = !!params[11];
-        const completedAt = params[12] || null;
-        const createdAt = params[13] || new Date().toISOString();
-        const time = (params[14] || 'Just now').toString().trim();
+        const clientPhone = phone || whatsapp || 'N/A';
+        const clientName = project || 'Client';
 
+        // Strict Supabase jobs table columns: [id, title, client, budget, deadline, category, status, description, assigned_to, designer, created_at]
         payload = {
           id: cleanId,
-          service: service,
-          category: service,
-          project: project,
           title: project,
-          price: price,
+          client: `${clientName} (${clientPhone})`,
           budget: price,
-          brief: brief,
-          details: brief,
-          description: refImg ? `${brief}\n\nRef Image: ${refImg}` : brief,
-          phone: phone,
-          whatsapp: whatsapp,
-          ratio: ratio,
-          referenceimage: refImg,
-          referenceImage: refImg,
-          reference_image: refImg,
-          image: refImg,
+          deadline: (params[14] || 'Just now').toString().trim(),
+          category: service,
           status: status,
-          acceptedby: acceptedBy,
-          acceptedBy: acceptedBy,
-          completed: completed,
-          completedat: completedAt,
-          completedAt: completedAt,
-          createdat: createdAt,
-          createdAt: createdAt,
-          created_at: createdAt,
-          time: time
+          description: [
+            brief,
+            refImg ? `Ref Image: [START]${refImg}[END]` : '',
+            ratio ? `Ratio: ${ratio}` : ''
+          ].filter(Boolean).join(' | '),
+          assigned_to: Array.isArray(acceptedBy) && acceptedBy.length > 0 ? acceptedBy[0] : '',
+          designer: Array.isArray(acceptedBy) ? acceptedBy.join(', ') : '',
+          created_at: params[13] || new Date().toISOString()
         };
       }
 
@@ -272,5 +317,3 @@ export function getPgPool() {
 }
 
 export default getPgPool;
-
-
