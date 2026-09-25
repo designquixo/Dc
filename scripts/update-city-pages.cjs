@@ -439,14 +439,17 @@ async function fetchLivePortfolioFromSupabase() {
               if (t && t.startsWith('{')) { try { meta = JSON.parse(t); } catch(e){} }
             });
           }
+          const img = d.image_url || meta.image || meta.imageUrl || d.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
           return {
             id: d.id,
             title: d.title,
             category: d.category,
             deliveryTime: meta.deliveryTime || meta.delivery || (Array.isArray(d.tags) && d.tags[0]) || '⚡ 30m Delivery',
-            image: d.image,
+            delivery: meta.deliveryTime || meta.delivery || (Array.isArray(d.tags) && d.tags[0]) || '⚡ 30m Delivery',
+            image: img,
+            image_url: img,
             description: meta.description || meta.desc || d.description || '',
-            client: meta.client || 'Verified Client'
+            client: d.client || meta.client || 'Verified Client'
           };
         });
       }
@@ -455,6 +458,39 @@ async function fetchLivePortfolioFromSupabase() {
     console.warn('Could not fetch live Supabase portfolio for static files, using fallback:', err.message);
   }
   return defaultPortfolio;
+}
+
+async function fetchLiveCityAddressesFromSupabase() {
+  const mergedAddresses = { ...defaultCityAddresses };
+  try {
+    const res = await fetch('https://gzbwvleuuxyidohujibj.supabase.co/rest/v1/city_addresses?select=*', {
+      headers: {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk'
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        rows.forEach(r => {
+          const k = (r.id || r.key || r.city || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
+          if (k) {
+            mergedAddresses[k] = {
+              name: r.city_name || r.name || (mergedAddresses[k] && mergedAddresses[k].name) || `${k.toUpperCase()} Creative Hub`,
+              address: r.full_address || r.address || (mergedAddresses[k] && mergedAddresses[k].address) || '',
+              landmark: r.state_name || (mergedAddresses[k] && mergedAddresses[k].landmark) || '',
+              phone: r.phone_number || r.phone || (mergedAddresses[k] && mergedAddresses[k].phone) || '+91 86024 20897',
+              whatsapp: (r.phone_number || r.phone || '918602420897').replace(/[^0-9]/g, ''),
+              hours: (mergedAddresses[k] && mergedAddresses[k].hours) || 'Open Daily 9:00 AM - 11:30 PM (30m Express Delivery)'
+            };
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch live city addresses, using defaults:', err.message);
+  }
+  return mergedAddresses;
 }
 
 // Pills list for targeted service switching
@@ -470,12 +506,13 @@ const serviceSlugList = [
   { slug: 'packaging-label-designer', key: 'packaging-design', label: 'Packaging & Labels', icon: 'package' }
 ];
 
-function generateCityHtml(serviceSlug, cityKey, activePortfolio) {
+function generateCityHtml(serviceSlug, cityKey, activePortfolio, activeAddresses) {
   const cityName = cityDisplayMap[cityKey] || (cityKey.charAt(0).toUpperCase() + cityKey.slice(1));
   const serviceInfo = serviceDataMap[serviceSlug] || serviceDataMap['graphic-designer'];
   const fileName = `${serviceSlug}-in-${cityKey}.html`;
   const canonicalUrl = `https://designquixo.in/${fileName}`;
-  const officeInfo = defaultCityAddresses[cityKey] || {
+  const addressesMap = activeAddresses || defaultCityAddresses;
+  const officeInfo = addressesMap[cityKey] || defaultCityAddresses[cityKey] || {
     name: `${cityName} Creative Hub`,
     address: `Central Commercial Hub, Near Metro / Transit Station, ${cityName}`,
     landmark: `${cityName} Central Commercial Area`,
@@ -1498,13 +1535,44 @@ ${portfolioCardsHtml}
               populateCityOfficeInfo();
             } catch(e) {}
           }
+          if (typeof db.subscribeCityAddresses === 'function') {
+            try {
+              db.subscribeCityAddresses(function() {
+                populateCityOfficeInfo();
+              });
+            } catch(e) {}
+          }
           if (typeof db.subscribeReviews === 'function') {
             try {
               db.subscribeReviews(renderCityReviews);
             } catch(e) {}
           }
         }
-        // Direct REST fetch to guarantee instant sync without waiting for modules
+
+        // 1. Direct Server API fetch for instant sync
+        try {
+          fetch('/api/get-portfolio')
+            .then(function(r) { return r.json(); })
+            .then(function(sJson) {
+              if (sJson && sJson.success && Array.isArray(sJson.items) && sJson.items.length > 0) {
+                localStorage.setItem('dq_portfolio_items', JSON.stringify(sJson.items));
+                renderCityPortfolio(sJson.items);
+              }
+            }).catch(function(){});
+
+          fetch('/api/get-city-addresses')
+            .then(function(r) { return r.json(); })
+            .then(function(sJson) {
+              if (sJson && sJson.success && sJson.addresses && typeof sJson.addresses === 'object' && Object.keys(sJson.addresses).length > 0) {
+                var current = JSON.parse(localStorage.getItem('dq_city_addresses') || '{}');
+                var merged = Object.assign({}, current, sJson.addresses);
+                localStorage.setItem('dq_city_addresses', JSON.stringify(merged));
+                populateCityOfficeInfo();
+              }
+            }).catch(function(){});
+        } catch(e) {}
+
+        // 2. Direct Supabase REST fetch fallback to guarantee instant sync without waiting for modules
         try {
           fetch('https://gzbwvleuuxyidohujibj.supabase.co/rest/v1/portfolio?select=*', {
             headers: {
@@ -1520,18 +1588,60 @@ ${portfolioCardsHtml}
                     if (t && t.startsWith('{')) { try { meta = JSON.parse(t); } catch(e){} }
                   });
                 }
+                var img = d.image_url || meta.image || meta.imageUrl || d.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
                 return {
                   id: d.id,
                   title: d.title,
                   category: d.category,
                   deliveryTime: meta.deliveryTime || meta.delivery || (Array.isArray(d.tags) && d.tags[0]) || '⚡ 30m Delivery',
-                  image: d.image,
+                  delivery: meta.deliveryTime || meta.delivery || (Array.isArray(d.tags) && d.tags[0]) || '⚡ 30m Delivery',
+                  image: img,
+                  image_url: img,
                   description: meta.description || meta.desc || d.description || '',
-                  client: meta.client || 'Verified Client'
+                  client: d.client || meta.client || 'Verified Client'
                 };
               });
               localStorage.setItem('dq_portfolio_items', JSON.stringify(parsed));
               renderCityPortfolio(parsed);
+            }
+          }).catch(function(){});
+
+          fetch('https://gzbwvleuuxyidohujibj.supabase.co/rest/v1/city_addresses?select=*', {
+            headers: {
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk',
+              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk'
+            }
+          }).then(function(r) { return r.json(); }).then(function(rows) {
+            if (Array.isArray(rows) && rows.length > 0) {
+              var map = {};
+              rows.forEach(function(r) {
+                var k = (r.id || r.key || r.city || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
+                if (k) {
+                  var addr = r.full_address || r.address || '';
+                  var ph = r.phone_number || r.phone || '+91 86024 20897';
+                  var nm = r.city_name || r.name || (k.toUpperCase() + ' Creative Hub');
+                  map[k] = {
+                    id: k,
+                    key: k,
+                    name: nm,
+                    title: nm,
+                    address: addr,
+                    full_address: addr,
+                    phone: ph,
+                    phone_number: ph,
+                    whatsapp: ph.replace(/[^0-9]/g, ''),
+                    landmark: r.state_name || '',
+                    cityState: r.state_name || '',
+                    state_name: r.state_name || '',
+                    email: r.email || (k + '@designquixo.com'),
+                    pincode: r.pincode || ''
+                  };
+                }
+              });
+              var current = JSON.parse(localStorage.getItem('dq_city_addresses') || '{}');
+              var merged = Object.assign({}, current, map);
+              localStorage.setItem('dq_city_addresses', JSON.stringify(merged));
+              populateCityOfficeInfo();
             }
           }).catch(function(){});
         } catch(e) {}
@@ -1551,14 +1661,23 @@ ${portfolioCardsHtml}
 </html>`;
 }
 
-// Run through all cities and services with live Supabase portfolio
+// Run through all cities and services with live Supabase portfolio & addresses
 async function runAllCityGenerations() {
   let livePortfolio = defaultPortfolio;
+  let liveAddresses = defaultCityAddresses;
+
   try {
     livePortfolio = await fetchLivePortfolioFromSupabase();
     console.log(`Loaded ${livePortfolio.length} active portfolio items for static page rendering.`);
   } catch(e) {
     console.warn('Using default portfolio for static render:', e);
+  }
+
+  try {
+    liveAddresses = await fetchLiveCityAddressesFromSupabase();
+    console.log(`Loaded ${Object.keys(liveAddresses).length} active city addresses for static page rendering.`);
+  } catch(e) {
+    console.warn('Using default city addresses for static render:', e);
   }
 
   let generatedCount = 0;
@@ -1567,14 +1686,14 @@ async function runAllCityGenerations() {
 
   for (const city of cities) {
     for (const slug of serviceSlugs) {
-      const htmlContent = generateCityHtml(slug, city, livePortfolio);
+      const htmlContent = generateCityHtml(slug, city, livePortfolio, liveAddresses);
       const filePath = path.join(process.cwd(), `${slug}-in-${city}.html`);
       fs.writeFileSync(filePath, htmlContent, 'utf8');
       generatedCount++;
     }
   }
 
-  console.log(`Successfully generated ${generatedCount} SEO City & Service pages with live portfolio!`);
+  console.log(`Successfully generated ${generatedCount} SEO City & Service pages with live portfolio & addresses!`);
 
   // Generate ultra-clean, perfectly formatted sitemap.xml for Google Search Console
   try {
