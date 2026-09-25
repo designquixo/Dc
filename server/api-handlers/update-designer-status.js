@@ -36,8 +36,7 @@ export default async function handler(req, res) {
     const isApprovedBool = (newStatus === 'Approved');
 
     const updateData = {
-      status: newStatus,
-      isapproved: isApprovedBool
+      status: newStatus
     };
 
     const orFilters = [
