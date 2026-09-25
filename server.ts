@@ -91,6 +91,9 @@ let cachedLoginHistoryTime = 0;
 let cachedCityAddressesData: Record<string, any> | null = null;
 let cachedCityAddressesTime = 0;
 
+let cachedPortfolioData: any[] | null = null;
+let cachedPortfolioTime = 0;
+
 const CACHE_TTL_MS = 25000; // 25 seconds memory cache TTL
 
 const smtpUser = process.env.SMTP_USER || 'alerts@designquixo.in';
@@ -2492,13 +2495,196 @@ async function startServer() {
           }
         }
 
+        // --- SAVE PORTFOLIO ITEM API ROUTE ---
+        if (reqPath === '/api/save-portfolio' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+          req.on('end', async () => {
+            try {
+              const payload = JSON.parse(body || '{}');
+              if (!payload || !payload.id) {
+                res.statusCode = 400;
+                setNoCacheHeaders(res);
+                return res.end(JSON.stringify({ success: false, message: 'Missing portfolio item id' }));
+              }
+
+              const delivery = payload.deliveryTime || payload.delivery || '⚡ 30-45m Delivery';
+              const client = payload.client || 'Verified Client';
+              const desc = payload.description || payload.desc || '';
+              const img = payload.image_url || payload.image || payload.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
+
+              const meta = JSON.stringify({
+                delivery,
+                deliveryTime: delivery,
+                client,
+                description: desc,
+                desc,
+                image: img,
+                imageUrl: img
+              });
+
+              const dbRow = {
+                id: payload.id,
+                title: payload.title || 'Creative Project',
+                category: payload.category || 'social',
+                client,
+                image_url: img,
+                tags: [delivery, meta]
+              };
+
+              // Invalidate cache
+              cachedPortfolioData = null;
+
+              const { data, error } = await serverSupabase
+                .from('portfolio')
+                .upsert(dbRow)
+                .select();
+
+              if (error) {
+                console.warn('[SERVER /api/save-portfolio Supabase warning]:', error.message);
+              } else {
+                console.log(`[SERVER /api/save-portfolio SUCCESS]: Saved ${payload.id} (${payload.title})`);
+              }
+
+              // Trigger background regeneration of static city pages
+              try {
+                import('child_process').then(({ exec }) => {
+                  exec('node scripts/update-city-pages.cjs', () => {});
+                }).catch(() => {});
+              } catch (e) {}
+
+              setNoCacheHeaders(res);
+              return res.end(JSON.stringify({
+                success: true,
+                item: {
+                  id: payload.id,
+                  title: payload.title || '',
+                  category: payload.category || '',
+                  client,
+                  image: img,
+                  deliveryTime: delivery,
+                  delivery,
+                  description: desc
+                },
+                message: 'Portfolio item saved to cloud and synced.'
+              }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              setNoCacheHeaders(res);
+              return res.end(JSON.stringify({ success: false, message: err.message || 'Error saving portfolio' }));
+            }
+          });
+          return;
+        }
+
+        // --- DELETE PORTFOLIO ITEM API ROUTE ---
+        if (reqPath === '/api/delete-portfolio' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+          req.on('end', async () => {
+            try {
+              const { id } = JSON.parse(body || '{}');
+              if (!id) {
+                res.statusCode = 400;
+                setNoCacheHeaders(res);
+                return res.end(JSON.stringify({ success: false, message: 'Missing portfolio item id' }));
+              }
+
+              cachedPortfolioData = null;
+              await serverSupabase.from('portfolio').delete().eq('id', id);
+
+              // Trigger background regeneration of static city pages
+              try {
+                import('child_process').then(({ exec }) => {
+                  exec('node scripts/update-city-pages.cjs', () => {});
+                }).catch(() => {});
+              } catch (e) {}
+
+              setNoCacheHeaders(res);
+              return res.end(JSON.stringify({ success: true, message: `Portfolio item ${id} deleted from cloud.` }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              setNoCacheHeaders(res);
+              return res.end(JSON.stringify({ success: false, message: err.message }));
+            }
+          });
+          return;
+        }
+
+        // --- GET PORTFOLIO ITEMS API ROUTE (IN-MEMORY CACHED + PARSED) ---
+        if (reqPath === '/api/get-portfolio' && req.method === 'GET') {
+          try {
+            if (cachedPortfolioData && (Date.now() - cachedPortfolioTime < CACHE_TTL_MS)) {
+              setNoCacheHeaders(res);
+              return res.end(JSON.stringify({ success: true, items: cachedPortfolioData, cached: true }));
+            }
+
+            const { data: dbRows, error } = await serverSupabase
+              .from('portfolio')
+              .select('*')
+              .order('created_at', { ascending: false });
+
+            if (error) {
+              console.warn('[SERVER /api/get-portfolio notice]:', error.message);
+            }
+
+            let parsed: any[] = [];
+            if (dbRows && Array.isArray(dbRows) && dbRows.length > 0) {
+              parsed = dbRows.map(row => {
+                let meta: any = {};
+                if (Array.isArray(row.tags)) {
+                  for (const t of row.tags) {
+                    if (typeof t === 'string' && t.startsWith('{')) {
+                      try { meta = JSON.parse(t); } catch (e) {}
+                    }
+                  }
+                }
+
+                const deliveryTime = (Array.isArray(row.tags) && row.tags[0] && !row.tags[0].startsWith('{'))
+                  ? row.tags[0]
+                  : (meta.deliveryTime || meta.delivery || '⚡ 30-45m Delivery');
+
+                const description = meta.description || meta.desc || row.description || '';
+                const client = row.client || meta.client || 'Verified Client';
+                const image = row.image_url || meta.image || meta.imageUrl || row.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
+
+                return {
+                  id: row.id,
+                  title: row.title || '',
+                  category: row.category || '',
+                  client,
+                  image,
+                  image_url: image,
+                  delivery: deliveryTime,
+                  deliveryTime,
+                  description
+                };
+              });
+            }
+
+            cachedPortfolioData = parsed;
+            cachedPortfolioTime = Date.now();
+
+            setNoCacheHeaders(res);
+            return res.end(JSON.stringify({
+              success: true,
+              items: parsed
+            }));
+          } catch (err: any) {
+            res.statusCode = 500;
+            setNoCacheHeaders(res);
+            return res.end(JSON.stringify({ success: false, items: [], message: err.message }));
+          }
+        }
+
         // --- SAVE CITY ADDRESS API ROUTE ---
         if (reqPath === '/api/save-city-address' && req.method === 'POST') {
           let body = '';
           req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
           req.on('end', async () => {
             try {
-              const { key, address, phone, name } = JSON.parse(body || '{}');
+              const reqData = JSON.parse(body || '{}');
+              const key = reqData.key || reqData.id || reqData.city;
               if (!key) {
                 res.statusCode = 400;
                 setNoCacheHeaders(res);
@@ -2506,8 +2692,12 @@ async function startServer() {
               }
 
               const cleanKey = key.toString().toLowerCase().trim().replace(/\s+/g, '-');
-              const cleanAddress = (address || '').toString().trim();
-              const cleanPhone = (phone || '+91 86024 20897').toString().trim();
+              const cleanAddress = (reqData.address || reqData.full_address || '').toString().trim();
+              const cleanPhone = (reqData.phone || reqData.phone_number || '+91 86024 20897').toString().trim();
+              const cityName = reqData.name || reqData.city_name || reqData.title || `${cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)} Creative Hub`;
+              const stateName = reqData.cityState || reqData.state || reqData.landmark || reqData.state_name || '';
+              const emailVal = reqData.email || `${cleanKey}@designquixo.com`;
+              const pincodeVal = reqData.pincode || (cleanAddress.match(/\b\d{6}\b/) || [])[0] || '';
 
               console.log(`[SERVER /api/save-city-address] Saving address for ${cleanKey}...`);
 
@@ -2515,10 +2705,13 @@ async function startServer() {
               cachedCityAddressesData = null;
 
               const payload = {
-                key: cleanKey,
-                city: cleanKey,
-                address: cleanAddress,
-                phone: cleanPhone
+                id: cleanKey,
+                city_name: cityName,
+                state_name: stateName,
+                full_address: cleanAddress,
+                phone_number: cleanPhone,
+                email: emailVal,
+                pincode: pincodeVal
               };
 
               const { error } = await serverSupabase
@@ -2527,6 +2720,8 @@ async function startServer() {
 
               if (error) {
                 console.warn('[SERVER /api/save-city-address Supabase warning]:', error.message);
+              } else {
+                console.log(`[SERVER /api/save-city-address SUCCESS]: Saved ${cleanKey}`);
               }
 
               // Also log in login_history for audit
@@ -2540,11 +2735,25 @@ async function startServer() {
                 });
               } catch (e) {}
 
+              // Trigger background regeneration of static city pages
+              try {
+                import('child_process').then(({ exec }) => {
+                  exec('node scripts/update-city-pages.cjs', () => {});
+                }).catch(() => {});
+              } catch (e) {}
+
               setNoCacheHeaders(res);
               return res.end(JSON.stringify({
                 success: true,
                 key: cleanKey,
-                data: payload,
+                id: cleanKey,
+                data: {
+                  ...payload,
+                  key: cleanKey,
+                  name: cityName,
+                  address: cleanAddress,
+                  phone: cleanPhone
+                },
                 message: `Address for ${cleanKey.toUpperCase()} saved to cloud.`
               }));
             } catch (err: any) {
@@ -2575,14 +2784,26 @@ async function startServer() {
             const map: Record<string, any> = {};
             if (data && Array.isArray(data)) {
               data.forEach((row: any) => {
-                if (row && row.key) {
-                  map[row.key] = {
-                    name: `${row.key.charAt(0).toUpperCase() + row.key.slice(1)} Creative Hub`,
-                    address: row.address || '',
-                    phone: row.phone || '+91 86024 20897',
-                    whatsapp: (row.phone || '918602420897').replace(/[^0-9]/g, ''),
-                    landmark: '',
-                    cityState: ''
+                const k = (row.id || row.key || row.city || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
+                if (k) {
+                  const addr = row.full_address || row.address || '';
+                  const ph = row.phone_number || row.phone || '+91 86024 20897';
+                  const nm = row.city_name || row.name || `${k.charAt(0).toUpperCase() + k.slice(1)} Creative Hub`;
+                  map[k] = {
+                    id: k,
+                    key: k,
+                    name: nm,
+                    title: nm,
+                    address: addr,
+                    full_address: addr,
+                    phone: ph,
+                    phone_number: ph,
+                    whatsapp: ph.replace(/[^0-9]/g, ''),
+                    landmark: row.state_name || '',
+                    cityState: row.state_name || '',
+                    state_name: row.state_name || '',
+                    email: row.email || `${k}@designquixo.com`,
+                    pincode: row.pincode || ''
                   };
                 }
               });
@@ -2805,9 +3026,132 @@ async function startServer() {
     });
   }
 
+  // Auto-seed Supabase tables if empty
+  seedSupabasePortfolioAndCitiesIfEmpty().catch(() => {});
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log('Server running on http://0.0.0.0:' + PORT);
   });
+}
+
+async function seedSupabasePortfolioAndCitiesIfEmpty() {
+  try {
+    const { data: portRows } = await serverSupabase.from('portfolio').select('id').limit(1);
+    if (!portRows || portRows.length === 0) {
+      console.log('[SUPABASE SEED]: Seeding default portfolio items into Supabase...');
+      const defaultPortfolioItems = [
+        {
+          id: 'port-1',
+          title: 'High CTR Thumbnail',
+          category: 'thumbnail',
+          client: 'CA Mohit Patidar',
+          image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80',
+          tags: [
+            '⚡ 25m Delivery',
+            JSON.stringify({
+              delivery: '⚡ 25m Delivery',
+              deliveryTime: '⚡ 25m Delivery',
+              client: 'CA Mohit Patidar',
+              description: 'High-CTR YouTube thumbnail designed with bold visuals, strong hierarchy, and attention-grabbing composition to maximize viewer engagement.',
+              image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80',
+              imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80'
+            })
+          ]
+        },
+        {
+          id: 'port-1789560301635',
+          title: 'Avir Vada Pav',
+          category: 'branding',
+          client: 'Avir Jain',
+          image_url: 'https://images.unsplash.com/photo-1626785774625-ddcddc3445e9?w=700&auto=format&fit=crop&q=80',
+          tags: [
+            '⚡ 1hr Delivery',
+            JSON.stringify({
+              delivery: '⚡ 1hr Delivery',
+              deliveryTime: '⚡ 1hr Delivery',
+              client: 'Avir Jain',
+              description: 'Custom logo designed for Avir Vada Pav, bringing the three family members together in a memorable and friendly brand identity.',
+              image: 'https://images.unsplash.com/photo-1626785774625-ddcddc3445e9?w=700&auto=format&fit=crop&q=80',
+              imageUrl: 'https://images.unsplash.com/photo-1626785774625-ddcddc3445e9?w=700&auto=format&fit=crop&q=80'
+            })
+          ]
+        },
+        {
+          id: 'port-1789562209675',
+          title: 'Brest Pump Packaging',
+          category: 'social',
+          client: 'Aditya Ajmera',
+          image_url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=700&auto=format&fit=crop&q=80',
+          tags: [
+            '⚡ 1.5hr Delivery',
+            JSON.stringify({
+              delivery: '⚡ 1.5hr Delivery',
+              deliveryTime: '⚡ 1.5hr Delivery',
+              client: 'Aditya Ajmera',
+              description: 'Professional breast pump packaging designed with a clean, modern, and trustworthy visual identity for a medical healthcare brand.',
+              image: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=700&auto=format&fit=crop&q=80',
+              imageUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=700&auto=format&fit=crop&q=80'
+            })
+          ]
+        },
+        {
+          id: 'port-1789560174988',
+          title: 'Malhaari Insta Grid',
+          category: 'social',
+          client: 'Hiten Sharma',
+          image_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=700&auto=format&fit=crop&q=80',
+          tags: [
+            '⚡ 30m Delivery',
+            JSON.stringify({
+              delivery: '⚡ 30m Delivery',
+              deliveryTime: '⚡ 30m Delivery',
+              client: 'Hiten Sharma',
+              description: 'A visually engaging Instagram grid crafted to strengthen brand identity with clean, consistent, and modern creative direction.',
+              image: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=700&auto=format&fit=crop&q=80',
+              imageUrl: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=700&auto=format&fit=crop&q=80'
+            })
+          ]
+        }
+      ];
+
+      for (const p of defaultPortfolioItems) {
+        await serverSupabase.from('portfolio').upsert(p);
+      }
+      console.log('[SUPABASE SEED SUCCESS]: Portfolio seeded successfully.');
+    }
+
+    const { data: cityRows } = await serverSupabase.from('city_addresses').select('id').limit(1);
+    if (!cityRows || cityRows.length === 0) {
+      console.log('[SUPABASE SEED]: Seeding default 18 city address hubs into Supabase...');
+      const defaultHubs = [
+        { id: 'indore', city_name: 'Indore Central Creative Hub', state_name: 'Madhya Pradesh', full_address: 'Vijay Nagar Commercial Complex, Near Brilliant Convention Centre, A.B. Road, Indore, MP 452010', phone_number: '+91 86024 20897', email: 'indore@designquixo.com', pincode: '452010' },
+        { id: 'bhopal', city_name: 'Bhopal Creative Hub', state_name: 'Madhya Pradesh', full_address: 'Zone-1, M.P. Nagar, Near DB City Mall, Bhopal, MP 462011', phone_number: '+91 86024 20897', email: 'bhopal@designquixo.com', pincode: '462011' },
+        { id: 'mumbai', city_name: 'Mumbai Regional Operations', state_name: 'Maharashtra', full_address: 'Platina Tower, G-Block, Bandra Kurla Complex (BKC), Bandra East, Mumbai, MH 400051', phone_number: '+91 86024 20897', email: 'mumbai@designquixo.com', pincode: '400051' },
+        { id: 'delhi', city_name: 'Delhi NCR Creative Studio', state_name: 'Delhi', full_address: 'Statesman House, Barakhamba Road, Connaught Place, New Delhi, DL 110001', phone_number: '+91 86024 20897', email: 'delhi@designquixo.com', pincode: '110001' },
+        { id: 'delhi-ncr', city_name: 'Delhi NCR Regional Studio', state_name: 'Delhi NCR', full_address: 'Statesman House, Barakhamba Road, Connaught Place, New Delhi, DL 110001', phone_number: '+91 86024 20897', email: 'delhincr@designquixo.com', pincode: '110001' },
+        { id: 'bangalore', city_name: 'Bangalore Tech Creative Node', state_name: 'Karnataka', full_address: 'Prestige Meridian, 100 Feet Road, 4th Block, Koramangala, Bengaluru, KA 560034', phone_number: '+91 86024 20897', email: 'bangalore@designquixo.com', pincode: '560034' },
+        { id: 'hyderabad', city_name: 'Hyderabad Creator Hub', state_name: 'Telangana', full_address: 'Cyber Towers, HITEC City Main Road, Madhapur, Hyderabad, TS 500081', phone_number: '+91 86024 20897', email: 'hyderabad@designquixo.com', pincode: '500081' },
+        { id: 'pune', city_name: 'Pune Design Workstation', state_name: 'Maharashtra', full_address: 'Business Bay, North Main Road, Koregaon Park, Pune, MH 411001', phone_number: '+91 86024 20897', email: 'pune@designquixo.com', pincode: '411001' },
+        { id: 'ahmedabad', city_name: 'Ahmedabad Commercial Hub', state_name: 'Gujarat', full_address: 'Mondeal Heights, S.G. Highway, Prahlad Nagar, Ahmedabad, GJ 380015', phone_number: '+91 86024 20897', email: 'ahmedabad@designquixo.com', pincode: '380015' },
+        { id: 'jaipur', city_name: 'Jaipur Creative Studio', state_name: 'Rajasthan', full_address: 'Apex Tower, Tonk Road, C-Scheme, Jaipur, RJ 302001', phone_number: '+91 86024 20897', email: 'jaipur@designquixo.com', pincode: '302001' },
+        { id: 'chennai', city_name: 'Chennai Studio Node', state_name: 'Tamil Nadu', full_address: 'Tidel Park, Rajiv Gandhi Salai, Taramani / OMR, Chennai, TN 600113', phone_number: '+91 86024 20897', email: 'chennai@designquixo.com', pincode: '600113' },
+        { id: 'kolkata', city_name: 'Kolkata Design Center', state_name: 'West Bengal', full_address: 'Millennium City IT Park, DN Block, Sector V, Salt Lake, Kolkata, WB 700091', phone_number: '+91 86024 20897', email: 'kolkata@designquixo.com', pincode: '700091' },
+        { id: 'lucknow', city_name: 'Lucknow Operations Hub', state_name: 'Uttar Pradesh', full_address: 'Rana Pratap Marg, Hazratganj & Gomti Nagar, Lucknow, UP 226001', phone_number: '+91 86024 20897', email: 'lucknow@designquixo.com', pincode: '226001' },
+        { id: 'surat', city_name: 'Surat Commercial Center', state_name: 'Gujarat', full_address: 'International Business Center, VIP Road, Vesu, Surat, GJ 395007', phone_number: '+91 86024 20897', email: 'surat@designquixo.com', pincode: '395007' },
+        { id: 'chandigarh', city_name: 'Chandigarh Studio Hub', state_name: 'Chandigarh', full_address: 'City Centre, Sector 17-C, Near Parade Ground, Chandigarh, CH 160017', phone_number: '+91 86024 20897', email: 'chandigarh@designquixo.com', pincode: '160017' },
+        { id: 'nagpur', city_name: 'Nagpur Creative Hub', state_name: 'Maharashtra', full_address: 'Empress City, Ramdaspeth, Wardha Road, Nagpur, MH 440010', phone_number: '+91 86024 20897', email: 'nagpur@designquixo.com', pincode: '440010' },
+        { id: 'patna', city_name: 'Patna Regional Studio', state_name: 'Bihar', full_address: 'Biscomaun Bhawan, Gandhi Maidan, Fraser Road, Patna, BR 800001', phone_number: '+91 86024 20897', email: 'patna@designquixo.com', pincode: '800001' },
+        { id: 'kochi', city_name: 'Kochi Creative Desk', state_name: 'Kerala', full_address: 'Infopark Expressway, Kakkanad, Kochi, KL 682042', phone_number: '+91 86024 20897', email: 'kochi@designquixo.com', pincode: '682042' }
+      ];
+
+      for (const h of defaultHubs) {
+        await serverSupabase.from('city_addresses').upsert(h);
+      }
+      console.log('[SUPABASE SEED SUCCESS]: 18 city address hubs seeded successfully.');
+    }
+  } catch (err: any) {
+    console.warn('[SUPABASE SEED NOTICE]:', err.message);
+  }
 }
 
 startServer();
