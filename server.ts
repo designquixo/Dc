@@ -2126,7 +2126,7 @@ async function startServer() {
                 if (mStart && mStart[1]) {
                   refImg = mStart[1].trim();
                 } else {
-                  const match = descStr.match(/Ref Image:\s*([^\s|]+)/i) || descStr.match(/Ref Image:\s*([^\r\n|]+)/i);
+                  const match = descStr.match(/Ref Image:\s*(data:image\/[^\s|]+|[^\s|]+)/i) || descStr.match(/Ref Image:\s*([^\r\n|]+)/i);
                   if (match && match[1]) refImg = match[1].trim();
                 }
               }
@@ -2251,7 +2251,7 @@ async function startServer() {
                 status: job.status || 'Pending',
                 description: [
                   briefVal,
-                  refImg ? `Ref Image: ${refImg}` : '',
+                  refImg ? `Ref Image: [START]${refImg}[END]` : '',
                   job.ratio ? `Ratio: ${job.ratio}` : ''
                 ].filter(Boolean).join(' | '),
                 assigned_to: job.assignedTo || job.designerEmail || '',
