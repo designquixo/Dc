@@ -192,13 +192,41 @@ export function extractImageUrl(field: any): string {
 
 
 export async function pruneMissingColumnsAndUpsert(table: string, payload: any): Promise<{ success: boolean; error?: string }> {
-  // Supabase designers table schema: [id, name, phone, email, identifier, password, portfolio, skills, experience, software, role, status, date, createdat, earnings, isapproved, approvedat, signature, signaturedataurl, agreementsigned, agreementsigneddate]
-  const DESIGNERS_VALID_COLS = new Set(['id', 'name', 'phone', 'email', 'identifier', 'password', 'portfolio', 'skills', 'experience', 'software', 'role', 'status', 'date', 'createdat', 'earnings', 'isapproved', 'approvedat', 'signature', 'signaturedataurl', 'agreementsigned', 'agreementsigneddate']);
+  // Exact Supabase table schemas
+  const DESIGNERS_VALID_COLS = new Set(['id', 'name', 'email', 'phone', 'status', 'specialization', 'skills', 'bio', 'exp', 'portfolio', 'rating', 'reviews', 'jobscompleted', 'hourlyrate', 'response_time', 'avatar', 'createdat', 'password', 'identifier']);
+  const JOBS_VALID_COLS = new Set(['id', 'title', 'client', 'budget', 'deadline', 'category', 'status', 'description', 'assigned_to', 'designer', 'created_at']);
+  const SERVICES_VALID_COLS = new Set(['id', 'title', 'category', 'price', 'icon', 'description', 'features', 'created_at']);
+  const PORTFOLIO_VALID_COLS = new Set(['id', 'title', 'category', 'image_url', 'client', 'tags', 'created_at']);
+  const CITY_ADDRESSES_VALID_COLS = new Set(['id', 'city_name', 'state_name', 'full_address', 'phone_number', 'email', 'pincode', 'latitude', 'longitude', 'created_at']);
 
   let currentPayload = { ...payload };
   if (table === 'designers') {
     Object.keys(currentPayload).forEach(key => {
       if (!DESIGNERS_VALID_COLS.has(key.toLowerCase())) {
+        delete currentPayload[key];
+      }
+    });
+  } else if (table === 'jobs') {
+    Object.keys(currentPayload).forEach(key => {
+      if (!JOBS_VALID_COLS.has(key.toLowerCase())) {
+        delete currentPayload[key];
+      }
+    });
+  } else if (table === 'services') {
+    Object.keys(currentPayload).forEach(key => {
+      if (!SERVICES_VALID_COLS.has(key.toLowerCase())) {
+        delete currentPayload[key];
+      }
+    });
+  } else if (table === 'portfolio') {
+    Object.keys(currentPayload).forEach(key => {
+      if (!PORTFOLIO_VALID_COLS.has(key.toLowerCase())) {
+        delete currentPayload[key];
+      }
+    });
+  } else if (table === 'city_addresses') {
+    Object.keys(currentPayload).forEach(key => {
+      if (!CITY_ADDRESSES_VALID_COLS.has(key.toLowerCase())) {
         delete currentPayload[key];
       }
     });
@@ -430,10 +458,6 @@ export const DQSupabase = {
           bc.postMessage({ type: 'NEW_JOB', job: normalizedJob });
         }
       } catch(e) {}
-      if (typeof window !== 'undefined' && (window as any).DQSoundService) {
-        (window as any).DQSoundService.playNewJobChime(5);
-        (window as any).DQSoundService.showNewJobBanner(normalizedJob, 'New Job Uploaded');
-      }
     } catch (e) {}
 
     // 2. Prepare exact payload to match Supabase jobs schema columns strictly
@@ -792,11 +816,11 @@ export const DQSupabase = {
 
             const descStr = (sj.description || sj.brief || sj.details || '').toString();
             if (!refImg && descStr.includes('Ref Image:')) {
-              const mStart = descStr.match(/Ref Image:\s*\[START\]([\s\S]*?)\[END\]/i);
+              const mStart = descStr.match(/(?:Ref Image:\s*)?\[(?:START|IMAGE_DATA_START)\]([\s\S]*?)\[(?:END|IMAGE_DATA_END)\]/i);
               if (mStart && mStart[1]) {
                 refImg = extractImageUrl(mStart[1].trim());
               } else {
-                const match = descStr.match(/Ref Image:\s*([^\s|]+)/i) || descStr.match(/Ref Image:\s*([^\r\n|]+)/i);
+                const match = descStr.match(/Ref Image:\s*(data:image\/[^\s|]+|https?:\/\/[^\s|]+)/i) || descStr.match(/Ref Image:\s*([^\s|]+)/i) || descStr.match(/Ref Image:\s*([^\r\n|]+)/i);
                 if (match && match[1]) {
                   refImg = extractImageUrl(match[1]);
                 }
@@ -811,7 +835,11 @@ export const DQSupabase = {
 
             let cleanBrief = sj.brief || sj.details || descStr;
             if (cleanBrief && typeof cleanBrief === 'string' && cleanBrief.includes('Ref Image:')) {
-              cleanBrief = cleanBrief.split(' | Ref Image:')[0].replace(/Ref Image:\s*\[START\][\s\S]*?\[END\]/gi, '').replace(/Ref Image:[^\s|]+/gi, '').trim();
+              cleanBrief = cleanBrief
+                .replace(/(?:\|\s*)?Ref Image:\s*\[(?:START|IMAGE_DATA_START)\][\s\S]*?\[(?:END|IMAGE_DATA_END)\]/gi, '')
+                .replace(/(?:\|\s*)?Ref Image:\s*(?:data:image\/[^\s|]+|https?:\/\/[^\s|]+)/gi, '')
+                .replace(/(?:\|\s*)?Ratio:[^|]+/gi, '')
+                .trim();
             }
 
             let ratioVal = sj.ratio || localJob?.ratio || '';
