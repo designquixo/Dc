@@ -1628,23 +1628,48 @@ export const DQSupabase = {
       window.dispatchEvent(new CustomEvent('dq_portfolio_updated', { detail: local }));
 
       const delivery = item.delivery || item.deliveryTime || '⚡ 30-45m Delivery';
-      const client = item.client || 'Verified Client';
+      const client = item.client || item.designer || 'Verified Client';
       const desc = item.description || item.desc || '';
+      const img = item.image || item.imageUrl || item.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
 
       const meta = JSON.stringify({
         delivery,
         deliveryTime: delivery,
         client,
         description: desc,
-        desc
+        desc,
+        image: img,
+        imageUrl: img
       });
 
+      // 1. Sync via Server API (guaranteed cloud persistence + city pages update)
+      try {
+        await fetch('/api/save-portfolio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: item.id,
+            title: item.title || 'Creative Project',
+            category: item.category || 'social',
+            image_url: img,
+            image: img,
+            client,
+            description: desc,
+            deliveryTime: delivery,
+            tags: [delivery, meta]
+          })
+        });
+      } catch (errApi) {
+        console.warn('Server API save-portfolio notice:', errApi);
+      }
+
+      // 2. Direct Supabase portfolio table upsert (Strict column schema: id, title, category, image_url, client, tags)
       await supabase.from('portfolio').upsert({
         id: item.id,
         title: item.title || '',
         category: item.category || '',
-        designer: item.designer || client,
-        image: item.image || '',
+        client,
+        image_url: img,
         tags: [delivery, meta]
       });
     } catch (e) {
@@ -1659,6 +1684,17 @@ export const DQSupabase = {
       local = local.filter(p => p.id !== itemId);
       localStorage.setItem('dq_portfolio_items', JSON.stringify(local));
       window.dispatchEvent(new CustomEvent('dq_portfolio_updated', { detail: local }));
+
+      // 1. Server API delete
+      try {
+        await fetch('/api/delete-portfolio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: itemId })
+        });
+      } catch (e) {}
+
+      // 2. Direct Supabase delete
       await supabase.from('portfolio').delete().eq('id', itemId);
     } catch (e) {
       console.warn('Supabase deletePortfolio error:', e);
@@ -1668,6 +1704,27 @@ export const DQSupabase = {
   async fetchPortfolio(): Promise<any[]> {
     let local: any[] = [];
     try { local = JSON.parse(localStorage.getItem('dq_portfolio_items') || '[]'); } catch (e) {}
+
+    // 1. Try Server API first
+    try {
+      const sRes = await fetch('/api/get-portfolio', {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
+        cache: 'no-store'
+      });
+      if (sRes.ok) {
+        const sJson = await sRes.json();
+        if (sJson.success && Array.isArray(sJson.items) && sJson.items.length > 0) {
+          localStorage.setItem('dq_portfolio_items', JSON.stringify(sJson.items));
+          window.dispatchEvent(new CustomEvent('dq_portfolio_updated', { detail: sJson.items }));
+          return sJson.items;
+        }
+      }
+    } catch (errApi) {}
+
+    // 2. Direct Supabase table fetch
     try {
       const { data: dbRows, error } = await supabase.from('portfolio').select('*');
       if (!error && Array.isArray(dbRows) && dbRows.length > 0) {
@@ -1685,15 +1742,16 @@ export const DQSupabase = {
             ? row.tags[0]
             : (meta.deliveryTime || meta.delivery || '⚡ 30-45m Delivery');
 
-          const description = row.description || meta.description || meta.desc || '';
-          const client = meta.client || row.designer || 'Verified Client';
+          const description = meta.description || meta.desc || row.description || '';
+          const client = row.client || meta.client || row.designer || 'Verified Client';
+          const image = row.image_url || meta.image || meta.imageUrl || row.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
 
           return {
             id: row.id,
             title: row.title || '',
             category: row.category || '',
             client,
-            image: row.image || '',
+            image,
             delivery: deliveryTime,
             deliveryTime,
             description
@@ -1909,9 +1967,13 @@ export const DQSupabase = {
   async saveCityAddress(cityKey: string, addressData: any): Promise<void> {
     if (!cityKey) return;
     const cleanKey = cityKey.toString().toLowerCase().trim().replace(/\s+/g, '-');
-    const cleanAddress = (addressData.address || '').toString().trim();
-    const cleanPhone = (addressData.phone || '+91 86024 20897').toString().trim();
-    
+    const cleanAddress = (addressData.address || addressData.full_address || '').toString().trim();
+    const cleanPhone = (addressData.phone || addressData.phone_number || '+91 86024 20897').toString().trim();
+    const cityName = addressData.name || addressData.title || addressData.city_name || `${cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)} Creative Hub`;
+    const stateName = addressData.cityState || addressData.state || addressData.landmark || addressData.state_name || '';
+    const emailVal = addressData.email || `${cleanKey}@designquixo.com`;
+    const pincodeVal = addressData.pincode || (cleanAddress.match(/\b\d{6}\b/) || [])[0] || '';
+
     let local: Record<string, any> = {};
     try {
       local = JSON.parse(localStorage.getItem('dq_city_addresses') || '{}');
@@ -1921,10 +1983,18 @@ export const DQSupabase = {
       ...(local[cleanKey] || {}),
       ...addressData,
       key: cleanKey,
+      id: cleanKey,
       city: cleanKey,
       address: cleanAddress,
+      full_address: cleanAddress,
       phone: cleanPhone,
-      name: `${cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)} Creative Hub`
+      phone_number: cleanPhone,
+      name: cityName,
+      city_name: cityName,
+      state_name: stateName,
+      cityState: stateName,
+      email: emailVal,
+      pincode: pincodeVal
     };
     local[cleanKey] = updatedItem;
 
@@ -1933,30 +2003,41 @@ export const DQSupabase = {
       window.dispatchEvent(new CustomEvent('dq_cities_updated', { detail: local }));
     } catch (e) {}
 
-    // 1. Save via Server API first (guaranteed cloud sync)
+    // 1. Save via Server API first (guaranteed cloud sync + auto static page updates)
     try {
       await fetch('/api/save-city-address', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: cleanKey,
           key: cleanKey,
           city: cleanKey,
+          city_name: cityName,
+          name: cityName,
+          state_name: stateName,
+          cityState: stateName,
           address: cleanAddress,
+          full_address: cleanAddress,
           phone: cleanPhone,
-          name: updatedItem.name
+          phone_number: cleanPhone,
+          email: emailVal,
+          pincode: pincodeVal
         })
       });
     } catch (errApi) {
       console.warn('Server API save-city-address notice:', errApi);
     }
 
-    // 2. Direct Supabase upsert fallback (Strict column match without updatedAt)
+    // 2. Direct Supabase upsert (Strict valid columns: id, city_name, state_name, full_address, phone_number, email, pincode)
     try {
       const payload = {
-        key: cleanKey,
-        city: cleanKey,
-        address: cleanAddress,
-        phone: cleanPhone
+        id: cleanKey,
+        city_name: cityName,
+        state_name: stateName,
+        full_address: cleanAddress,
+        phone_number: cleanPhone,
+        email: emailVal,
+        pincode: pincodeVal
       };
       const { error } = await supabase.from('city_addresses').upsert(payload);
       if (error) {
@@ -2010,14 +2091,26 @@ export const DQSupabase = {
       if (!error && data && Array.isArray(data) && data.length > 0) {
         const parsed: Record<string, any> = {};
         data.forEach((row: any) => {
-          if (row && row.key && (row.address || row.phone)) {
-            parsed[row.key] = {
-              name: `${row.key.charAt(0).toUpperCase() + row.key.slice(1)} Creative Hub`,
-              address: row.address || '',
-              phone: row.phone || '+91 86024 20897',
-              whatsapp: (row.phone || '').replace(/[^0-9]/g, ''),
-              landmark: '',
-              cityState: ''
+          const key = (row.id || row.key || row.city || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
+          if (key) {
+            const addr = row.full_address || row.address || '';
+            const ph = row.phone_number || row.phone || '+91 86024 20897';
+            const nm = row.city_name || row.name || `${key.charAt(0).toUpperCase() + key.slice(1)} Creative Hub`;
+            parsed[key] = {
+              id: key,
+              key: key,
+              name: nm,
+              title: nm,
+              address: addr,
+              full_address: addr,
+              phone: ph,
+              phone_number: ph,
+              whatsapp: ph.replace(/[^0-9]/g, ''),
+              landmark: row.state_name || '',
+              cityState: row.state_name || '',
+              state_name: row.state_name || '',
+              email: row.email || `${key}@designquixo.com`,
+              pincode: row.pincode || ''
             };
           }
         });
