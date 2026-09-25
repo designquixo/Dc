@@ -326,11 +326,17 @@
   service.checkAndAlertNewJobs = function(jobsList, panelName = "dashboard") {
     if (!Array.isArray(jobsList) || jobsList.length === 0) return;
 
-    let snapshotMap = {};
+    // Bell notification is strictly reserved for Admin and Designer workstations
+    const pLower = (panelName || "").toLowerCase();
+    const isAuthorizedPanel = pLower.includes("admin") || pLower.includes("designer") || pLower.includes("workstation");
+    if (!isAuthorizedPanel) return;
+
+    // Load persistent set of job IDs that have ALREADY triggered the sound alert
+    let alertedJobsMap = {};
     try {
-      snapshotMap = JSON.parse(localStorage.getItem("dq_sound_job_snapshots") || "{}");
+      alertedJobsMap = JSON.parse(localStorage.getItem("dq_sound_alerted_job_ids") || "{}");
     } catch(e) {
-      snapshotMap = {};
+      alertedJobsMap = {};
     }
 
     let unackedJobs = [];
@@ -338,10 +344,22 @@
       unackedJobs = JSON.parse(localStorage.getItem("dq_unacknowledged_sound_jobs") || "[]");
     } catch(e) {}
 
-    let isInitialColdLoad = Object.keys(snapshotMap).length === 0;
-    let updatedJob = null;
-    let updateType = "Job Alert";
-    const now = Date.now();
+    // On cold load: mark all existing jobs as already known/alerted so we NEVER ring on page refresh/open
+    const isColdLoad = Object.keys(alertedJobsMap).length === 0;
+    if (isColdLoad) {
+      jobsList.forEach(job => {
+        if (!job) return;
+        const rawId = (job.id || job.jobId || "").toString().trim();
+        const normId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(rawId) : rawId.toUpperCase();
+        if (normId) alertedJobsMap[normId] = true;
+      });
+      try {
+        localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedJobsMap));
+      } catch(e) {}
+      return; // Do not ring on initial cold load!
+    }
+
+    let newArrivedJob = null;
 
     jobsList.forEach(job => {
       if (!job) return;
@@ -349,51 +367,43 @@
       if (!rawId) return;
       const normId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(rawId) : rawId.toUpperCase();
 
-      const st = (job.status || "Pending").toString();
-      const completed = job.completed === true || st.toLowerCase().includes("completed") || st.toLowerCase().includes("delivered");
-      const acceptedBy = Array.isArray(job.acceptedBy) ? job.acceptedBy.join(",") : (job.acceptedBy || "");
-      const revisionCount = Array.isArray(job.revisionHistory) ? job.revisionHistory.length : 0;
-      
-      const currentSignature = `${st}_${completed}_${acceptedBy}_${revisionCount}`;
-      const previousSignature = snapshotMap[normId];
+      const st = (job.status || "Pending").toString().trim();
+      const isPending = st === "Pending" || st.toLowerCase() === "pending";
+      const isUnacked = unackedJobs.includes(normId) || unackedJobs.includes(rawId);
+      const alreadyAlerted = !!alertedJobsMap[normId];
 
-      const rawCreated = job.createdAt || job.created_at || job.createdat;
-      const createdAtMs = rawCreated ? new Date(rawCreated).getTime() : 0;
-      const isRecentlyCreated = createdAtMs > 0 && (now - createdAtMs < 300000);
-      const isUnacknowledged = unackedJobs.includes(normId) || unackedJobs.includes(rawId);
-
-      if (!previousSignature) {
-        snapshotMap[normId] = currentSignature;
-        if (!isInitialColdLoad || isRecentlyCreated || isUnacknowledged) {
-          updatedJob = job;
-          updateType = "New Job Uploaded";
-        }
-      } else if (previousSignature !== currentSignature) {
-        snapshotMap[normId] = currentSignature;
-        updatedJob = job;
-        updateType = "Job Updated: " + st;
-      } else if (isUnacknowledged) {
-        updatedJob = job;
-        updateType = "New Job Uploaded";
+      // ONLY ring when a NEW job arrives in the dashboard (status is Pending and not yet alerted, or unacked)
+      if (!alreadyAlerted && (isPending || isUnacked)) {
+        alertedJobsMap[normId] = true;
+        newArrivedJob = job;
       }
     });
 
+    // Save updated alerted map
     try {
-      localStorage.setItem("dq_sound_job_snapshots", JSON.stringify(snapshotMap));
+      localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedJobsMap));
     } catch(e) {}
 
-    if (updatedJob) {
-      console.log("[DQSoundService] 🔔 Job Update detected (#" + updatedJob.id + " - " + updateType + ") in " + panelName + "! Playing alert 5 times...");
+    // Clear unacknowledged jobs queue so it never triggers repeatedly
+    if (unackedJobs.length > 0) {
+      try {
+        localStorage.setItem("dq_unacknowledged_sound_jobs", "[]");
+      } catch(e) {}
+    }
+
+    // Play chime ONLY once for the newly arrived job
+    if (newArrivedJob) {
+      console.log("[DQSoundService] 🔔 New Job arrived in dashboard (#" + newArrivedJob.id + ") on " + panelName + "! Playing bell chime...");
       this.playNewJobChime(5);
-      this.showNewJobBanner(updatedJob, updateType);
+      this.showNewJobBanner(newArrivedJob, "New Job Received");
       
       // Trigger Chrome Desktop / Mobile System Notification
       if (window.DQPush && typeof window.DQPush.showLocalSystemNotification === 'function') {
-        const price = (window.DQStore && window.DQStore.getJobPrice) ? window.DQStore.getJobPrice(updatedJob) : (updatedJob.price || 399);
+        const price = (window.DQStore && window.DQStore.getJobPrice) ? window.DQStore.getJobPrice(newArrivedJob) : (newArrivedJob.price || 399);
         window.DQPush.showLocalSystemNotification(
-          `🚨 ${updateType.toUpperCase()} #${updatedJob.id || 'DQ'}`,
-          `₹${price} • ${updatedJob.service || 'Graphic Design'} | "${updatedJob.project || updatedJob.projectName || 'Design Order'}". Click to open & claim work!`,
-          updatedJob.id,
+          `🚨 NEW DESIGN ORDER #${newArrivedJob.id || 'DQ'}`,
+          `₹${price} • ${newArrivedJob.service || 'Graphic Design'} | "${newArrivedJob.project || newArrivedJob.projectName || 'Design Order'}". Click to open & claim work!`,
+          newArrivedJob.id,
           price
         );
       }
@@ -424,10 +434,16 @@
           if (event && event.data) {
             const data = event.data;
             console.log("[DQSoundService] ⚡ Realtime Broadcast received on " + panelName + ":", data);
-            if (data.type === "NEW_JOB" || data.type === "JOB_UPDATE") {
-              this.playNewJobChime(5);
-              if (data.job) {
-                this.showNewJobBanner(data.job, data.type === "NEW_JOB" ? "New Job Alert" : "Job Updated");
+            if (data.type === "NEW_JOB" && data.job) {
+              const jId = (data.job.id || data.job.jobId || "").toString().trim();
+              const nId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(jId) : jId.toUpperCase();
+              let alertedMap = {};
+              try { alertedMap = JSON.parse(localStorage.getItem("dq_sound_alerted_job_ids") || "{}"); } catch(e) {}
+              if (!alertedMap[nId]) {
+                alertedMap[nId] = true;
+                try { localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedMap)); } catch(e) {}
+                this.playNewJobChime(5);
+                this.showNewJobBanner(data.job, "New Job Alert");
                 if (window.DQPush && typeof window.DQPush.showLocalSystemNotification === 'function') {
                   const job = data.job;
                   const price = job.price || 399;
@@ -467,8 +483,15 @@
         try {
           const alertData = JSON.parse(e.newValue || "{}");
           if (alertData && alertData.id) {
-            this.playNewJobChime(5);
-            this.showNewJobBanner(alertData, "New Job Alert");
+            const nId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(alertData.id) : alertData.id.toString().toUpperCase();
+            let alertedMap = {};
+            try { alertedMap = JSON.parse(localStorage.getItem("dq_sound_alerted_job_ids") || "{}"); } catch(e) {}
+            if (!alertedMap[nId]) {
+              alertedMap[nId] = true;
+              try { localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedMap)); } catch(e) {}
+              this.playNewJobChime(5);
+              this.showNewJobBanner(alertData, "New Job Alert");
+            }
           }
         } catch(err) {}
       }
@@ -481,7 +504,7 @@
           this.checkAndAlertNewJobs(currentJobs, panelName);
         }
       } catch(e) {}
-    }, 2500);
+    }, 4000);
 
     const hookSupabase = () => {
       const db = window.DQSupabase || window.DQFirebase;
@@ -537,4 +560,3 @@
     }
   } catch(e) {}
 })();
-
