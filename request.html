@@ -957,6 +957,16 @@
         e.preventDefault();
         if (isFormSubmitting) return;
 
+        // If an image was selected and is still being compressed, wait up to 3 seconds
+        if (isCompressingImage) {
+          const sBtn = document.getElementById('submit-brief-btn');
+          if (sBtn) sBtn.innerText = 'Finalizing Image...';
+          for (let w = 0; w < 30; w++) {
+            if (!isCompressingImage) break;
+            await new Promise(r => setTimeout(r, 100));
+          }
+        }
+
         const clientName = document.getElementById('project-name').value.trim();
         const projectName = clientName || 'Design Project';
         const briefInput = document.getElementById('design-brief');
@@ -1046,7 +1056,40 @@
           createdAt: nowIso
         };
 
-        // 1. Realtime Supabase Save (Instantly pushes to Designer and Admin Dashboards)
+        // 1. Direct Supabase REST Upsert (Guarantees instant cloud persistence on all hosts)
+        const supabaseUrl = 'https://gzbwvleuuxyidohujibj.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk';
+
+        try {
+          fetch(`${supabaseUrl}/rest/v1/jobs`, {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates,return=representation'
+            },
+            body: JSON.stringify({
+              id: jobId,
+              title: clientName || serviceName,
+              client: `${clientName || 'Client'} (${whatsapp})`,
+              budget: servicePrice,
+              deadline: sla,
+              category: serviceName,
+              status: 'Pending',
+              description: [
+                brief,
+                cleanRefImg ? `Ref Image: [START]${cleanRefImg}[END]` : '',
+                calculatedRatio ? `Ratio: ${calculatedRatio}` : ''
+              ].filter(Boolean).join(' | '),
+              assigned_to: '',
+              designer: '',
+              created_at: nowIso
+            })
+          }).catch(e => console.warn('Direct REST job sync warning:', e));
+        } catch(e) {}
+
+        // 2. Realtime Supabase Save (Instantly pushes to Designer and Admin Dashboards)
         let db = window.DQSupabase || window.DQFirebase;
         if (!db) {
           for (let i = 0; i < 10; i++) {
