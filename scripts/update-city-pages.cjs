@@ -1347,7 +1347,8 @@ ${portfolioCardsHtml}
         if (titleEl) titleEl.textContent = officeData.name || officeData.title || (currentCityName + ' Creative Hub');
 
         const addrEl = document.getElementById('city-office-address');
-        if (addrEl && officeData.address) addrEl.textContent = officeData.address;
+        const addrVal = (officeData.address || officeData.full_address || '').trim();
+        if (addrEl && addrVal) addrEl.textContent = addrVal;
 
         const phoneVal = officeData.phone || '+91 86024 20897';
         const phoneEl = document.getElementById('city-office-phone');
