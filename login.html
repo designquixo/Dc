@@ -1429,6 +1429,7 @@
           if (loginCredsForm) loginCredsForm.classList.add('hidden');
           if (loginOtpStep) loginOtpStep.classList.remove('hidden');
           if (loginOtpPhoneDisplay) loginOtpPhoneDisplay.innerHTML = maskEmailAddress(targetEmail);
+
           if (loginOtpCode) {
             loginOtpCode.value = '';
             loginOtpCode.focus();
@@ -1494,6 +1495,7 @@
           loginCredsForm?.classList.add('hidden');
           loginOtpStep?.classList.remove('hidden');
           if (loginOtpPhoneDisplay) loginOtpPhoneDisplay.innerHTML = maskEmailAddress(targetEmail);
+
           if (loginOtpCode) {
             loginOtpCode.value = '';
             loginOtpCode.focus();
@@ -2707,7 +2709,61 @@
           agreementSignedDate: dateSignedStr
         };
 
-        // 1. Authoritative Server Registration to PostgreSQL
+        // 1. Authoritative Server Registration to PostgreSQL & Supabase Cloud
+        const supabaseUrl = 'https://gzbwvleuuxyidohujibj.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk';
+
+        // (A) Direct Supabase REST Upsert (Ensures cloud persistence on ALL domains/static hosting)
+        try {
+          const skillsArr = Array.isArray(skills) ? skills : [skills || 'Graphic Design'];
+          await fetch(`${supabaseUrl}/rest/v1/designers`, {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates,return=representation'
+            },
+            body: JSON.stringify({
+              id: clean10 || email,
+              name: name || 'Designer',
+              phone: clean10 || '',
+              email: email || '',
+              identifier: email || clean10,
+              password: password.toString(),
+              portfolio: portfolio || '',
+              skills: skillsArr,
+              specialization: skills || 'Graphic Design',
+              exp: skills || 'Graphic Design',
+              bio: bioText || '',
+              status: 'Pending',
+              avatar: currentSignupDpUrl || '',
+              createdat: new Date().toISOString()
+            })
+          });
+
+          // Also log registration audit in login_history
+          await fetch(`${supabaseUrl}/rest/v1/login_history`, {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              id: `reg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              phone: clean10 || email,
+              name: name || 'Designer',
+              role: 'designer',
+              status: `Designer Registered (Pending) - Email: ${email || 'None'} - Phone: +91 ${clean10}`,
+              timestamp: new Date().toISOString()
+            })
+          }).catch(() => {});
+        } catch (supErr) {
+          console.warn('Direct Supabase REST registration notice:', supErr);
+        }
+
+        // (B) Backend API Registration route
         try {
           const regRes = await fetch('/api/register-designer', {
             method: 'POST',
@@ -2720,9 +2776,27 @@
           console.warn('Direct server registration notice:', err);
         }
 
-        // 2. Also save signature to Supabase login_history explicitly
+        // (C) Also save signature to Supabase login_history explicitly
         if (sigDataUrl) {
           try {
+            await fetch(`${supabaseUrl}/rest/v1/login_history`, {
+              method: 'POST',
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({
+                id: 'sig-' + (clean10 || email),
+                phone: clean10 || email,
+                name: name,
+                role: 'signed_agreement',
+                status: sigDataUrl,
+                timestamp: new Date().toISOString()
+              })
+            }).catch(() => {});
+
             await fetch('/api/save-login-history', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -2734,7 +2808,7 @@
                 status: sigDataUrl,
                 timestamp: new Date().toISOString()
               })
-            });
+            }).catch(() => {});
           } catch(sigSaveErr) {
             console.warn('Signature save-login-history note:', sigSaveErr);
           }
