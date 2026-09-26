@@ -1,6 +1,6 @@
 /**
  * Design Quixo — Global Cookie Consent & Privacy Compliance
- * Compliant with DPDPA 2023 & IT Act 2000
+ * Compliant with DPDP Act 2023 / 2026 & IT Act 2000
  * Strictly Cache-Free & Real-Time
  */
 (function() {
