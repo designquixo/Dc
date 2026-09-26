@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Creator & Admin Portal Login - Design Quixo India</title>
+    <title>Login - Design Quixo</title>
     <meta name="description" content="Secure authentication gateway for Design Quixo verified creators, operations support, and platform admins." />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="shortcut icon" type="image/png" href="favicon.png" />
@@ -97,11 +97,8 @@
         <!-- FORM 1: LOGIN -->
         <div id="login-card" class="p-5 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-6">
           <div>
-            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
-              <i data-lucide="shield-check" class="w-5 h-5"></i>
-            </div>
-            <h2 class="text-xl sm:text-2xl font-bold text-slate-900 font-['Space_Grotesk']">Portal Login</h2>
-            <p class="text-xs text-slate-500 mt-1">Two-factor security: Password verification followed by mandatory 6-digit Email OTP.</p>
+            <h2 class="text-2xl font-bold text-slate-900 font-['Space_Grotesk']">Login</h2>
+            <p class="text-xs text-slate-500 mt-1">Sign in to your designer workstation.</p>
           </div>
 
           <!-- Alert message box for auth feedback -->
@@ -127,14 +124,9 @@
               </div>
             </div>
 
-            <div class="p-3 rounded-xl bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 flex items-start gap-2">
-              <i data-lucide="lock" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-              <span>Credentials verified first, followed by real-time 6-digit OTP dispatched to your registered Email address.</span>
-            </div>
-
             <button type="submit" id="btn-login-submit" class="w-full py-3.5 sm:py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer">
-              <i data-lucide="key" class="w-4 h-4"></i>
-              <span>Verify Password & Send Email OTP</span>
+              <i data-lucide="log-in" class="w-4 h-4"></i>
+              <span>Sign In</span>
             </button>
           </form>
 
@@ -173,7 +165,7 @@
 
           <div class="pt-2 border-t border-slate-100 text-center text-xs text-slate-500">
             <span>New designer?</span>
-            <button id="switch-to-signup-link" class="text-blue-600 font-bold hover:underline ml-1 cursor-pointer">Apply as Creator</button>
+            <button id="switch-to-signup-link" class="text-blue-600 font-bold hover:underline ml-1 cursor-pointer">Apply as Designer</button>
           </div>
         </div>
 
@@ -258,24 +250,23 @@
         </div>
 
         <!-- FORM 2: APPLY AS DESIGNER (Signup) -->
-        <div id="signup-card" class="hidden p-8 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-6">
+        <div id="signup-card" class="hidden p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-6">
           <div>
             <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
               <i data-lucide="pen-tool" class="w-5 h-5"></i>
             </div>
-            <h2 class="text-2xl font-bold text-slate-900 font-['Space_Grotesk']">Apply as Creator</h2>
-            <p class="text-xs text-slate-500 mt-1">Join India's verified human designer network. Earn per 30-min delivery on WhatsApp.</p>
+            <h2 class="text-2xl font-bold text-slate-900 font-['Space_Grotesk']">Apply as Designer</h2>
           </div>
 
           <form id="signup-form" class="space-y-4 text-xs">
             <div>
-              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1">Full Legal Name *</label>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Legal Name *</label>
               <input type="text" id="signup-name" required placeholder="e.g. Vikramaditya Solanki" class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:bg-white rounded-xl p-3 text-sm text-slate-900 outline-none transition-colors" />
             </div>
 
             <!-- PROFILE PHOTO / DP UPLOAD -->
             <div>
-              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1">Profile Photo / DP (Optional)</label>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">Profile Photo / DP</label>
               <div class="flex items-center gap-3 bg-slate-50 border border-slate-300 rounded-xl p-3 hover:border-emerald-500 transition-colors">
                 <div id="signup-dp-preview-box" class="w-12 h-12 rounded-full bg-slate-200 border-2 border-slate-300 flex items-center justify-center overflow-hidden shrink-0">
                   <i data-lucide="user" id="signup-dp-default-icon" class="w-6 h-6 text-slate-400"></i>
@@ -292,17 +283,16 @@
                       Remove
                     </button>
                   </div>
-                  <p class="text-[10px] text-slate-500 mt-1">Upload a clear photo / avatar (JPG or PNG).</p>
                 </div>
               </div>
             </div>
 
-            <!-- MANDATORY OFFICIAL EMAIL WITH REAL EMAIL OTP -->
+            <!-- EMAIL ADDRESS WITH VERIFICATION -->
             <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="block font-bold text-slate-700 uppercase tracking-wider text-xs">Official Email Address *</label>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block font-bold text-slate-700 uppercase tracking-wider text-xs">Email Address *</label>
                 <span id="signup-email-verified-badge" class="hidden text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <i data-lucide="check-circle-2" class="w-3 h-3"></i> Verified via Email OTP
+                  <i data-lucide="check-circle-2" class="w-3 h-3"></i> Verified
                 </span>
               </div>
               <div class="flex items-stretch gap-1.5 sm:gap-2">
@@ -312,20 +302,12 @@
                   <span class="hidden xs:inline sm:inline">Verify</span>
                 </button>
               </div>
-              <p class="text-[11px] text-amber-800 bg-amber-50/90 border border-amber-200 rounded-lg p-2 mt-1.5 flex items-start gap-1.5 leading-snug">
-                <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5"></i>
-                <span><strong>Notice:</strong> Please check your <strong>Email Inbox or Spam / Junk folder</strong> for the 6-digit OTP code.</span>
-              </p>
 
               <!-- Inline Signup Email OTP Box -->
               <div id="signup-email-otp-box" class="hidden mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
                 <div class="flex items-center justify-between text-[11px]">
                   <span class="font-bold text-emerald-950">Enter 6-digit Email code:</span>
                   <span id="signup-email-otp-timer" class="text-emerald-700 font-mono"></span>
-                </div>
-                <div class="p-2 rounded-lg bg-white border border-emerald-200 text-[11px] text-emerald-800 font-semibold flex items-center gap-1.5">
-                  <i data-lucide="mail" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
-                  <span>Code sent! <strong>Please check your Email Inbox or Spam / Junk folder</strong>.</span>
                 </div>
                 <div class="flex gap-2">
                   <input type="text" id="signup-email-otp-code" maxlength="6" inputmode="numeric" placeholder="••••••" class="min-w-0 flex-1 bg-white border border-emerald-300 rounded-lg px-3 py-2 text-center text-base font-mono font-extrabold tracking-widest text-slate-900 outline-none" />
@@ -338,41 +320,29 @@
               </div>
             </div>
 
-            <!-- ACTIVE CALLING & WHATSAPP NUMBER (DATA COLLECTION FOR CALLING & WHATSAPP ASSIGNMENTS) -->
+            <!-- WHATSAPP & CONTACT NUMBER -->
             <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="flex items-center gap-1.5 font-bold text-slate-700 uppercase tracking-wider text-xs">
-                  <i data-lucide="phone" class="w-3.5 h-3.5 text-blue-600"></i>
-                  <img src="wa_icon.png" class="w-3.5 h-3.5 object-contain rounded-full" alt="WhatsApp" onerror="this.onerror=null; this.src='wa_icon.png';" />
-                  <span>Calling & WhatsApp Number * (For Urgent Briefs & Admin Contact)</span>
-                </label>
-              </div>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">WhatsApp & Contact Number *</label>
               <div class="flex">
-                <span class="inline-flex items-center gap-1.5 px-3.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-bold">
-                  <i data-lucide="phone" class="w-3.5 h-3.5 text-blue-600"></i>
-                  <span>+91</span>
+                <span class="inline-flex items-center px-3.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-bold text-xs">
+                  +91
                 </span>
                 <input type="tel" id="signup-phone" maxlength="10" required pattern="[6-9][0-9]{9}" placeholder="9876543210" class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:bg-white rounded-r-xl p-3 text-sm text-slate-900 font-mono outline-none transition-colors" />
               </div>
-              <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
-                <i data-lucide="phone-call" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
-                <img src="wa_icon.png" class="w-3 h-3 object-contain rounded-full shrink-0" alt="WA" onerror="this.onerror=null; this.src='wa_icon.png';" />
-                <span>Collected so platform admin and clients can contact you directly via Phone Call & WhatsApp for project assignments. (No SMS OTP required on mobile).</span>
-              </p>
             </div>
 
             <div>
-              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1">Portfolio Link (Behance / Dribbble / Drive) *</label>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">Portfolio Link *</label>
               <input type="url" id="signup-portfolio" required placeholder="https://behance.net/yourname" class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:bg-white rounded-xl p-3 text-sm text-slate-900 font-mono outline-none transition-colors" />
             </div>
 
             <div>
-              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1">Primary Tools & Expertise *</label>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">Primary Tools & Expertise *</label>
               <input type="text" id="signup-skills" required placeholder="e.g. Photoshop, Illustrator, Figma, YouTube Thumbnails" class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:bg-white rounded-xl p-3 text-sm text-slate-900 outline-none transition-colors" />
             </div>
 
             <div>
-              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1">Choose a Password or PIN *</label>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password / PIN *</label>
               <div class="relative flex items-center">
                 <input type="password" id="signup-password" required placeholder="Minimum 4 characters" class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:bg-white rounded-xl p-3 pr-11 text-sm text-slate-900 outline-none transition-colors" />
                 <button type="button" onclick="togglePasswordVisibility('signup-password', this)" class="absolute right-2.5 p-1.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded-lg hover:bg-slate-200/50" title="Show / Hide Password">
@@ -402,6 +372,26 @@
               <!-- Hidden inputs to store acceptance & e-signature data -->
               <input type="checkbox" id="signup-agree-tc" class="hidden" />
               <input type="hidden" id="signup-sig-hidden-val" value="" />
+            </div>
+
+            <!-- SLEEK & PROFESSIONAL DPDP 2026 CONSENT (CLAUDE / GOOGLE / CHATGPT STYLE) -->
+            <div id="signup-dpdp-box" class="p-3 sm:p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 transition-all duration-200">
+              <div class="flex items-start gap-2.5">
+                <input type="checkbox" id="signup-dpdp-consent" required class="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600 shrink-0" />
+                <div class="text-xs text-slate-700 leading-snug">
+                  <label for="signup-dpdp-consent" class="cursor-pointer select-none">
+                    I consent to Design Quixo collecting my details and digital signature strictly for agreement execution under DPDP Act 2026.
+                  </label>
+                  <div class="mt-1 flex items-center gap-2 text-[11px]">
+                    <button type="button" onclick="openDpdpCreatorModal()" class="text-blue-600 hover:text-blue-800 font-semibold underline inline-flex items-center gap-1 cursor-pointer">
+                      <span>Read full disclosure</span>
+                      <i data-lucide="external-link" class="w-3 h-3"></i>
+                    </button>
+                    <span class="text-slate-300">&bull;</span>
+                    <a href="privacy.html" target="_blank" class="text-slate-500 hover:text-slate-800 underline">Privacy</a>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <button type="submit" id="btn-signup-submit" class="w-full py-3.5 sm:py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer">
@@ -677,8 +667,8 @@
               </div>
 
               <div>
-                <h5 class="font-bold text-slate-900 text-xs">13. Acceptance & E-Signature Stamping</h5>
-                <p class="text-[11px] text-slate-600 mt-0.5">By clicking "Sign Agreement & Submit Creator Application," the Creator confirms that they have read, understood, and agree to be bound by all terms of this Agreement. Their Name, Date, WhatsApp, and E-Signature are stamped on this document.</p>
+                <h5 class="font-bold text-slate-900 text-xs">13. Acceptance, E-Signature & DPDP Act 2026 Statutory Consent</h5>
+                <p class="text-[11px] text-slate-600 mt-0.5">By clicking "Sign Agreement & Submit Creator Application," the Creator confirms that they have read, understood, and agree to be bound by all terms of this Agreement. Under the Digital Personal Data Protection (DPDP) Act, 2023 / 2026, the Creator provides free, specific, informed, and unconditional consent for Design Quixo to store and process their personal information (Name, WhatsApp/Phone, Email, Skills, Portfolio, and Digital E-Signature strictly for agreement execution) for platform operations. No bank or UPI details are stored on this platform. Their Name, Date, WhatsApp, and E-Signature are stamped on this document.</p>
               </div>
             </div>
           </div>
@@ -790,6 +780,121 @@
       </div>
     </div>
 
+    <!-- DPDP Act 2026: Full Creator Personal Data Disclosure Modal Dialog -->
+    <div id="dpdp-creator-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[88vh]">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-blue-50/70">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
+              <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm font-['Space_Grotesk']">DPDP Act 2026 Statutory Personal Data Disclosure</h3>
+              <p class="text-[11px] text-slate-500">Notice under Section 5 & 6, Digital Personal Data Protection Act, 2023 & Rules 2025/2026</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeDpdpCreatorModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-600 leading-relaxed">
+          <div class="p-4 rounded-2xl bg-blue-50/50 border border-blue-200 text-blue-950 space-y-1">
+            <h4 class="font-bold text-xs flex items-center gap-1.5">
+              <i data-lucide="info" class="w-4 h-4 text-blue-700 shrink-0"></i>
+              <span>Statutory Data Fiduciary: Design Quixo India (Indore, MP, India)</span>
+            </h4>
+            <p class="text-[11px] text-blue-900 leading-snug">
+              Before submitting your Creator application, the law requires us to provide this itemized notice stating the exact categories of personal data we retain, the specified purpose for each item, and how you may exercise your Data Principal rights.
+            </p>
+          </div>
+
+          <!-- Itemized Table of Stored Data -->
+          <div class="border border-slate-200 rounded-2xl overflow-hidden">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                <tr>
+                  <th class="p-3">Personal Data Item</th>
+                  <th class="p-3">Specified Purpose of Collection</th>
+                  <th class="p-3">Retention Period</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-[11px] text-slate-600">
+                <tr>
+                  <td class="p-3 font-bold text-slate-800">1. Full Legal Name & Profile DP</td>
+                  <td class="p-3">Identity verification, creator roster identification, and client order attribution.</td>
+                  <td class="p-3">Duration of active creator account.</td>
+                </tr>
+                <tr>
+                  <td class="p-3 font-bold text-slate-800">2. Phone & WhatsApp Number (+91 Mobile)</td>
+                  <td class="p-3">Direct Phone Call and WhatsApp communication for rapid project assignment, revisions, and urgent brief dispatch.</td>
+                  <td class="p-3">Duration of active creator account.</td>
+                </tr>
+                <tr>
+                  <td class="p-3 font-bold text-slate-800">3. Verified Email Address</td>
+                  <td class="p-3">Secure email OTP login authentication, password reset, tax statements, and formal platform notices.</td>
+                  <td class="p-3">Duration of active account + 7 yrs tax compliance.</td>
+                </tr>
+                <tr>
+                  <td class="p-3 font-bold text-slate-800">4. Portfolio URLs & Tool Competencies</td>
+                  <td class="p-3">Evaluating manual human craftsmanship, skill vetting, and routing matching design tasks.</td>
+                  <td class="p-3">Duration of active creator account.</td>
+                </tr>
+                <tr>
+                  <td class="p-3 font-bold text-slate-800">5. Digital E-Signature (Drawn / Script Signature)</td>
+                  <td class="p-3">Collected strictly and exclusively for stamping and legally executing your Creator Code of Conduct & Payout Agreement PDF. Never reused or shared for any other purpose.</td>
+                  <td class="p-3">Stamped on your master agreement archive.</td>
+                </tr>
+                <tr>
+                  <td class="p-3 font-bold text-slate-800">6. Technical Telemetry (IP, Session Logs)</td>
+                  <td class="p-3">Security monitoring, fraud prevention, multi-accounting prevention, and platform anti-circumvention audit trails.</td>
+                  <td class="p-3">Rolling 180 days security log window.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-[11px] leading-relaxed flex items-start gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+            <div>
+              <strong>Zero Bank / Financial Details Collected on Platform:</strong> Design Quixo does NOT collect or store your bank accounts, credit/debit cards, or UPI PINs on this website. The 60% creator earnings settlements are managed directly via official WhatsApp.
+            </div>
+          </div>
+
+          <!-- Section on Data Principal Rights -->
+          <div class="space-y-2 pt-2">
+            <h4 class="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+              <i data-lucide="award" class="w-4 h-4 text-emerald-600"></i>
+              <span>Your Statutory Rights as a Creator (DPDP Act 2023 / 2026 Chapter III)</span>
+            </h4>
+            <ul class="list-disc pl-5 space-y-1 text-[11px] text-slate-600">
+              <li><strong>Right to Access:</strong> You may request an itemized summary of all personal data held about you at any time.</li>
+              <li><strong>Right to Correction:</strong> You may update or correct inaccurate profile details, phone numbers, or payout information.</li>
+              <li><strong>Right to Erasure & Account Closure:</strong> Upon completing pending jobs and receiving earned payouts, you may request permanent deletion of your profile and data within thirty (30) days.</li>
+              <li><strong>Right to Withdraw Consent:</strong> You may withdraw your consent at any time through account settings or via our Grievance Desk.</li>
+              <li><strong>Right of Grievance Redressal:</strong> Grievances are resolved within 7–15 days by our Data Protection Officer (designquixo@gmail.com | +91 86024 20897) with statutory right of escalation to the <strong>Data Protection Board of India (DPBI)</strong>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/80 flex items-center justify-between">
+          <a href="privacy.html" target="_blank" class="text-blue-600 font-bold text-xs underline flex items-center gap-1">
+            <span>Read Complete Privacy Policy</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeDpdpCreatorModal()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 font-bold text-xs transition-colors cursor-pointer">
+              Close
+            </button>
+            <button type="button" onclick="acceptDpdpConsentAndClose()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Accept & Provide Consent</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Footer -->
     <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-400 bg-white">
       <p>&copy; 2026 Design Quixo India.</p>
@@ -815,6 +920,25 @@
         const chk = document.getElementById('signup-agree-tc');
         if (chk) chk.checked = true;
         closeTermsModal();
+      };
+
+      window.openDpdpCreatorModal = function() {
+        const modal = document.getElementById('dpdp-creator-modal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          lucide.createIcons();
+        }
+      };
+
+      window.closeDpdpCreatorModal = function() {
+        const modal = document.getElementById('dpdp-creator-modal');
+        if (modal) modal.classList.add('hidden');
+      };
+
+      window.acceptDpdpConsentAndClose = function() {
+        const chk = document.getElementById('signup-dpdp-consent');
+        if (chk) chk.checked = true;
+        closeDpdpCreatorModal();
       };
 
       const tabLogin = document.getElementById('tab-login-btn');
@@ -2618,6 +2742,20 @@
           }
         }
 
+        // Validate Mandatory DPDP Act 2026 Statutory Consent
+        const dpdpConsent = document.getElementById('signup-dpdp-consent');
+        if (!dpdpConsent || !dpdpConsent.checked) {
+          const box = document.getElementById('signup-dpdp-box');
+          if (box) {
+            box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            box.classList.add('ring-2', 'ring-rose-500');
+            setTimeout(() => box.classList.remove('ring-2', 'ring-rose-500'), 3000);
+          }
+          alert('Consent Required:\n\nPlease tick the consent checkbox under the DPDP Act 2026 to proceed. You can click "Read what we store & why" to view complete details.');
+          if (dpdpConsent) dpdpConsent.focus();
+          return;
+        }
+
         // Validate Creator Agreement E-Signature Execution
         const hiddenSig = document.getElementById('signup-sig-hidden-val');
         let sigDataUrl = (hiddenSig && hiddenSig.value) || getSignupSignatureDataUrl();
@@ -2706,7 +2844,10 @@
           signature: sigDataUrl || '',
           signatureDataUrl: sigDataUrl || '',
           agreementSigned: true,
-          agreementSignedDate: dateSignedStr
+          agreementSignedDate: dateSignedStr,
+          dpdp_consent: true,
+          dpdp_consent_version: 'DPDP-2026-v1',
+          dpdp_consent_timestamp: new Date().toISOString()
         };
 
         // 1. Authoritative Server Registration to PostgreSQL & Supabase Cloud
@@ -2742,7 +2883,7 @@
             })
           });
 
-          // Also log registration audit in login_history
+          // Also log registration audit in login_history with DPDP 2026 Consent Record
           await fetch(`${supabaseUrl}/rest/v1/login_history`, {
             method: 'POST',
             headers: {
@@ -2755,7 +2896,7 @@
               phone: clean10 || email,
               name: name || 'Designer',
               role: 'designer',
-              status: `Designer Registered (Pending) - Email: ${email || 'None'} - Phone: +91 ${clean10}`,
+              status: `Designer Registered (Pending) - DPDP Consent: Verified (v2026.1) - Email: ${email || 'None'} - Phone: +91 ${clean10}`,
               timestamp: new Date().toISOString()
             })
           }).catch(() => {});
