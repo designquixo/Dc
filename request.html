@@ -80,7 +80,6 @@
         <div class="mb-8" id="request-stepper">
           <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
             <span id="step-label" class="text-blue-600 font-bold">Step 1 of 3: Design Brief</span>
-            <span class="text-slate-500 font-medium">Fast Turnaround: 30-60 Mins</span>
           </div>
           <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
             <div id="progress-bar" class="h-full bg-blue-600 w-1/3 transition-all duration-300"></div>
@@ -92,7 +91,6 @@
           
           <form id="design-request-form" class="space-y-6">
             
-            <!-- SECTION 1: Service & Brief Details -->
             <!-- SECTION 1: Progressive Animated Request Form -->
             <div id="form-section-1" class="space-y-6">
               <div class="space-y-1">
@@ -118,7 +116,6 @@
                     <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
                     <label for="service-select" class="block text-xs font-bold uppercase tracking-wider text-slate-800">Selected Service</label>
                   </div>
-                  <span id="selected-service-badge" class="text-[11px] font-bold text-blue-600 bg-blue-100/70 px-2.5 py-0.5 rounded-full">30-45 mins</span>
                 </div>
                 <select id="service-select" name="service" required class="w-full bg-white border border-slate-300 focus:border-blue-500 rounded-xl p-3 text-sm text-slate-900 font-semibold outline-none transition-colors shadow-2xs">
                   <option value="social-media" data-price="399" data-time="30-45 mins">Social Media Creative / Post — ₹399 (30-45 mins)</option>
@@ -135,12 +132,9 @@
 
               <!-- 2. Your Name (Active from start) -->
               <div id="step-container-name" class="p-4 sm:p-5 rounded-2xl bg-white border-2 border-blue-500 shadow-xs space-y-3 transition-all duration-300">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span>
-                    <label for="project-name" class="block text-xs font-bold uppercase tracking-wider text-slate-800">Your Full Name or Brand Name *</label>
-                  </div>
-                  <span id="name-status-badge" class="text-[11px] font-semibold text-slate-400">Step 2 of 5</span>
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                  <label for="project-name" class="block text-xs font-bold uppercase tracking-wider text-slate-800">Your Full Name or Brand Name *</label>
                 </div>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -148,11 +142,7 @@
                   </div>
                   <input type="text" id="project-name" name="projectName" required placeholder="Type your full name here..." class="w-full bg-slate-50 border border-slate-300 focus:border-blue-500 focus:bg-white rounded-xl pl-10 pr-4 py-3.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all font-semibold" autofocus />
                 </div>
-                <div class="flex items-center justify-between pt-1 gap-2">
-                  <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
-                    <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-400"></i>
-                    Shared strictly with your assigned designer
-                  </p>
+                <div class="flex justify-end pt-1">
                   <button type="button" id="btn-name-next" onclick="proceedFromNameStep()" class="py-2.5 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-xs shrink-0">
                     <span>Next: Details</span>
                     <i data-lucide="arrow-right" class="w-4 h-4"></i>
@@ -255,32 +245,18 @@
               <!-- 5. Calling & WhatsApp Number Input & Find Designer Button (Revealed at final step) -->
               <div id="step-container-submit" class="hidden space-y-4 transition-all duration-500 opacity-0 translate-y-3">
                 <div class="p-4 sm:p-5 rounded-2xl bg-white border-2 border-emerald-500 shadow-xs space-y-3">
-                  <div class="flex items-center justify-between flex-wrap gap-2">
-                    <div class="flex items-center gap-2">
-                      <span class="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">5</span>
-                      <label for="client-whatsapp" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-800">
-                        <i data-lucide="phone" class="w-3.5 h-3.5 text-blue-600"></i>
-                        <img src="wa_icon.png" class="w-3.5 h-3.5 object-contain rounded-full" alt="WhatsApp" onerror="this.onerror=null; this.src='wa_icon.png';" />
-                        <span>Your Calling & WhatsApp Number *</span>
-                      </label>
-                    </div>
-                    <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-                      <i data-lucide="phone" class="w-3 h-3 text-blue-600"></i>
-                      <img src="wa_icon.png" class="w-3 h-3 object-contain rounded-full" alt="WA" onerror="this.onerror=null; this.src='wa_icon.png';" />
-                      <span>Direct Call & WhatsApp Delivery</span>
-                    </span>
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">5</span>
+                    <label for="client-whatsapp" class="block text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Your Calling & WhatsApp Number *
+                    </label>
                   </div>
                   <div class="flex shadow-2xs rounded-xl overflow-hidden">
-                    <span class="inline-flex items-center gap-1.5 px-3.5 border border-r-0 border-slate-300 bg-slate-100 text-slate-700 text-sm font-bold">
-                      <i data-lucide="phone" class="w-3.5 h-3.5 text-blue-600"></i>
-                      <span>+91</span>
+                    <span class="inline-flex items-center px-3.5 border border-r-0 border-slate-300 bg-slate-100 text-slate-700 text-sm font-bold">
+                      +91
                     </span>
                     <input type="tel" id="client-whatsapp" name="whatsapp" required pattern="[6-9][0-9]{9}" placeholder="9876543210" class="w-full bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:bg-white rounded-r-xl px-4 py-3.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition-colors font-mono font-bold" />
                   </div>
-                  <span class="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
-                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
-                    <span>Your assigned creator will connect with you via Phone Call & WhatsApp for rapid proofs, revisions, and high-res vector file delivery.</span>
-                  </span>
                 </div>
 
                 <!-- Clean Solid Blue Submit Button -->
@@ -306,42 +282,68 @@
 
           </form>
 
-          <!-- SECTION 2: Live Radar Matching Simulation (5s) -->
-          <div id="searching-overlay" class="hidden py-10 text-center space-y-6">
-            <div class="relative w-28 h-28 mx-auto flex items-center justify-center">
-              <div class="absolute inset-0 rounded-full bg-blue-100 animate-radar"></div>
-              <div class="relative w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <i data-lucide="radio" class="w-8 h-8 animate-pulse"></i>
+          <!-- SECTION 2: Minimalist Live Designer Matching Engine (4.5s) -->
+          <div id="searching-overlay" class="hidden py-8 sm:py-12 text-center space-y-6">
+            
+            <!-- Professional Precision Radar Scanner -->
+            <div class="relative w-32 h-32 mx-auto flex items-center justify-center">
+              <!-- Concentric precision grid rings -->
+              <div class="absolute inset-0 rounded-full border border-slate-200/90"></div>
+              <div class="absolute inset-3 rounded-full border border-slate-200/60"></div>
+              <div class="absolute inset-6 rounded-full border border-blue-200/80 bg-blue-50/30"></div>
+              
+              <!-- Subtle pulsing wave -->
+              <div class="absolute inset-0 rounded-full bg-blue-500/10 animate-ping" style="animation-duration: 3s;"></div>
+
+              <!-- Rotating High-Tech Conic Radar Sweep -->
+              <div class="absolute inset-0 rounded-full overflow-hidden animate-[spin_2.8s_linear_infinite]"
+                   style="background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(37,99,235,0.06) 310deg, rgba(37,99,235,0.35) 360deg);">
+              </div>
+
+              <!-- Clean Center Pulse Beacon -->
+              <div class="relative w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <span class="absolute w-3 h-3 rounded-full bg-white/70 animate-ping"></span>
+                <i data-lucide="radio" class="w-5 h-5 text-white"></i>
               </div>
             </div>
 
-            <div class="space-y-2">
-              <h3 class="text-xl font-bold text-slate-900 font-['Space_Grotesk']">Matching Available Designers...</h3>
-              <p id="countdown-text" class="text-xs text-slate-500">Connecting with active verified creators (~5s)</p>
+            <!-- Header & Status Pill (Clean Spacing) -->
+            <div class="space-y-3 max-w-md mx-auto pt-3">
+              <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/70 text-blue-700 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                <span>Searching for active designer</span>
+              </div>
+              <h3 class="text-2xl font-bold text-slate-900 font-['Space_Grotesk']">Matching Top Available Designer</h3>
             </div>
 
-            <!-- Progress Bar -->
-            <div class="w-full max-w-sm mx-auto h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-              <div id="search-progress-fill" class="h-full bg-blue-600 w-0 transition-all duration-300"></div>
+            <!-- Sleek Glow Progress Bar -->
+            <div class="w-full max-w-sm mx-auto space-y-1.5 pt-1">
+              <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                <div id="search-progress-fill" class="h-full bg-blue-600 w-0 transition-all duration-150 rounded-full"></div>
+              </div>
+              <div class="flex justify-between text-[11px] font-mono font-semibold text-slate-400 px-0.5">
+                <span id="matching-percentage-text">0% Completed</span>
+                <span id="matching-status-pill">Analyzing brief requirements</span>
+              </div>
             </div>
 
-            <!-- Live Status Logs -->
-            <div class="max-w-md mx-auto p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left font-mono text-xs space-y-2 text-slate-600">
-              <div class="flex items-center gap-2 text-emerald-700">
-                <i data-lucide="check" class="w-3.5 h-3.5"></i>
-                <span>[1/4] Design brief logged to national intake registry</span>
+            <!-- Structured Verification Stepper Log -->
+            <div class="max-w-sm mx-auto p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs text-left text-xs space-y-2.5">
+              <div id="log-step-1" class="flex items-center gap-2.5 text-emerald-700 font-medium">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                <span class="text-[11px]">Design brief parsed &amp; logged to queue</span>
               </div>
-              <div id="log-step-2" class="flex items-center gap-2 text-slate-400">
-                <i data-lucide="loader" class="w-3.5 h-3.5"></i>
-                <span>[2/4] Broadcasting to verified creator nodes...</span>
+              <div id="log-step-2" class="flex items-center gap-2.5 text-slate-400">
+                <i data-lucide="circle" class="w-4 h-4 shrink-0"></i>
+                <span class="text-[11px]">Matching top-rated graphic creator</span>
               </div>
-              <div id="log-step-3" class="flex items-center gap-2 text-slate-400">
-                <i data-lucide="circle" class="w-3.5 h-3.5"></i>
-                <span>[3/4] Assigning priority creator...</span>
+              <div id="log-step-3" class="flex items-center gap-2.5 text-slate-400">
+                <i data-lucide="circle" class="w-4 h-4 shrink-0"></i>
+                <span class="text-[11px]">Securing priority 30-min delivery slot</span>
               </div>
-              <div id="log-step-4" class="flex items-center gap-2 text-slate-400">
-                <i data-lucide="circle" class="w-3.5 h-3.5"></i>
-                <span>[4/4] Establishing WhatsApp secure channel...</span>
+              <div id="log-step-4" class="flex items-center gap-2.5 text-slate-400">
+                <i data-lucide="circle" class="w-4 h-4 shrink-0"></i>
+                <span class="text-[11px]">Preparing direct WhatsApp channel</span>
               </div>
             </div>
           </div>
@@ -521,7 +523,6 @@
       const stepContainerSubmit = document.getElementById('step-container-submit');
       const stepProgressText = document.getElementById('step-progress-text');
       const stepProgressBar = document.getElementById('step-progress-bar');
-      const nameStatusBadge = document.getElementById('name-status-badge');
 
       window._nameStepConfirmed = false;
       window._contentStepAnswered = false;
@@ -540,15 +541,12 @@
       function updateStepProgress() {
         const hasValidName = nameInput && nameInput.value.trim().length >= 2;
         let currentStep = 1;
-        let progressPct = 20;
+        let progressPct = 25;
 
         if (window._nameStepConfirmed && hasValidName) {
           currentStep = 2;
-          progressPct = 40;
+          progressPct = 50;
 
-          if (nameStatusBadge) {
-            nameStatusBadge.innerHTML = '<span class="text-emerald-600 font-bold flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Name set</span>';
-          }
           if (stepContainerName) {
             stepContainerName.classList.remove('border-blue-500');
             stepContainerName.classList.add('border-slate-200');
@@ -556,18 +554,14 @@
 
           if (window._contentStepAnswered) {
             currentStep = 3;
-            progressPct = 65;
+            progressPct = 75;
 
             if (window._refStepAnswered) {
               currentStep = 4;
-              progressPct = 90;
+              progressPct = 100;
             }
           }
         } else {
-          if (nameStatusBadge) {
-            nameStatusBadge.textContent = 'Step 2 of 5';
-            nameStatusBadge.className = 'text-[11px] font-semibold text-slate-400';
-          }
           if (stepContainerName) {
             stepContainerName.classList.add('border-blue-500');
             stepContainerName.classList.remove('border-slate-200');
@@ -600,9 +594,6 @@
         const val = nameInput.value.trim();
         if (val.length < 2) {
           nameInput.focus();
-          if (nameStatusBadge) {
-            nameStatusBadge.innerHTML = '<span class="text-rose-600 font-bold">Please enter your name to continue</span>';
-          }
           return;
         }
 
@@ -709,12 +700,7 @@
       if (nameInput) {
         // Clear warning on type, BUT DO NOT auto-reveal next step while typing
         nameInput.addEventListener('input', () => {
-          if (nameInput.value.trim().length >= 2) {
-            if (nameStatusBadge && !window._nameStepConfirmed) {
-              nameStatusBadge.textContent = 'Click Next when done';
-              nameStatusBadge.className = 'text-[11px] font-semibold text-blue-600';
-            }
-          } else {
+          if (nameInput.value.trim().length < 2) {
             window._nameStepConfirmed = false;
             updateStepProgress();
           }
@@ -728,20 +714,6 @@
           }
         });
       }
-
-      // Update SLA badge when service changes
-      function updateServiceBadge() {
-        const badge = document.getElementById('selected-service-badge');
-        if (!badge || !serviceSelect) return;
-        const selOpt = serviceSelect.options[serviceSelect.selectedIndex];
-        if (selOpt) {
-          const sla = selOpt.getAttribute('data-time') || '30-45 mins';
-          const price = selOpt.getAttribute('data-price') || '399';
-          badge.textContent = `⚡ ₹${price} • ${sla}`;
-        }
-      }
-      serviceSelect.addEventListener('change', updateServiceBadge);
-      updateServiceBadge();
 
       // Dynamic Dimension & Ratio Controller (Simplified: Size/Ratio removed from user view)
       function updateDimensionSection() {
@@ -1174,38 +1146,53 @@
         searchingOverlay.classList.remove('hidden');
         stepLabel.textContent = 'Step 2 of 3: Designer Matching';
         progressBar.style.width = '66%';
+        if (window.lucide) lucide.createIcons();
 
-        // 5-Second Animated Step Sequencing
+        // Clean 4.5-Second Animated Matching Engine
         const fill = document.getElementById('search-progress-fill');
-        const countdownText = document.getElementById('countdown-text');
+        const pctText = document.getElementById('matching-percentage-text');
+        const statusPill = document.getElementById('matching-status-pill');
+
         let elapsed = 0;
-        const totalDuration = 5000;
-        const interval = 200;
+        const totalDuration = 4500;
+        const interval = 100;
 
         const timer = setInterval(() => {
           elapsed += interval;
-          const percentage = Math.min(100, (elapsed / totalDuration) * 100);
-          fill.style.width = percentage + '%';
-          const remainingSec = Math.max(0, Math.ceil((totalDuration - elapsed) / 1000));
-          countdownText.textContent = `Connecting with active verified creators (~${remainingSec}s)`;
+          const percentage = Math.min(100, Math.round((elapsed / totalDuration) * 100));
+          if (fill) fill.style.width = percentage + '%';
+          if (pctText) pctText.textContent = `${percentage}% Completed`;
 
-          if (elapsed >= 1500) {
+          // Professional status transitions
+          if (elapsed < 1200) {
+            if (statusPill) statusPill.textContent = 'Analyzing brief requirements';
+          } else if (elapsed < 2400) {
+            if (statusPill) statusPill.textContent = 'Connecting with active verified creators';
+
             const step2 = document.getElementById('log-step-2');
-            step2.className = 'flex items-center gap-2 text-blue-600 font-bold';
-            step2.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i><span>[2/4] Broadcasting to verified creator nodes...</span>';
-            lucide.createIcons();
-          }
-          if (elapsed >= 3000) {
+            if (step2) {
+              step2.className = 'flex items-center gap-2.5 text-emerald-700 font-medium';
+              step2.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i><span class="text-[11px]">Matched top-rated graphic creator</span>';
+              if (window.lucide) lucide.createIcons();
+            }
+          } else if (elapsed < 3600) {
+            if (statusPill) statusPill.textContent = 'Allocating designer workstation';
+
             const step3 = document.getElementById('log-step-3');
-            step3.className = 'flex items-center gap-2 text-emerald-700 font-bold';
-            step3.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>[3/4] Designer Workstation assigned!</span>';
-            lucide.createIcons();
-          }
-          if (elapsed >= 4200) {
+            if (step3) {
+              step3.className = 'flex items-center gap-2.5 text-emerald-700 font-medium';
+              step3.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i><span class="text-[11px]">Priority 30-min delivery slot secured</span>';
+              if (window.lucide) lucide.createIcons();
+            }
+          } else {
+            if (statusPill) statusPill.textContent = 'Preparing direct WhatsApp channel';
+
             const step4 = document.getElementById('log-step-4');
-            step4.className = 'flex items-center gap-2 text-blue-600';
-            step4.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i><span>[4/4] Establishing WhatsApp secure channel...</span>';
-            lucide.createIcons();
+            if (step4) {
+              step4.className = 'flex items-center gap-2.5 text-emerald-700 font-medium';
+              step4.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i><span class="text-[11px]">Direct WhatsApp channel ready</span>';
+              if (window.lucide) lucide.createIcons();
+            }
           }
 
           if (elapsed >= totalDuration) {
@@ -1223,7 +1210,7 @@
             confirmationView.classList.remove('hidden');
             stepLabel.textContent = 'Step 3 of 3: Designer Connected';
             progressBar.style.width = '100%';
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
           }
         }, interval);
       });
