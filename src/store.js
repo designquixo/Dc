@@ -390,7 +390,18 @@ function initCloudPortfolioSync() {
         }).catch(() => {});
       } catch(e) {}
     } else {
-      // Direct REST fallback for immediate Supabase sync
+      // 1. Try Server API first
+      fetch('/api/get-portfolio')
+        .then(res => res.json())
+        .then(sJson => {
+          if (sJson && sJson.success && Array.isArray(sJson.items) && sJson.items.length > 0) {
+            localStorage.setItem('dq_portfolio_items', JSON.stringify(sJson.items));
+            window.dispatchEvent(new CustomEvent('dq_portfolio_updated', { detail: sJson.items }));
+          }
+        })
+        .catch(() => {});
+
+      // 2. Direct REST fallback for immediate Supabase sync
       const supabaseUrl = 'https://gzbwvleuuxyidohujibj.supabase.co';
       const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk';
       fetch(`${supabaseUrl}/rest/v1/portfolio?select=*`, {
@@ -411,14 +422,17 @@ function initCloudPortfolioSync() {
                 }
               });
             }
+            const img = d.image_url || meta.image || meta.imageUrl || d.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=700&auto=format&fit=crop&q=80';
             return {
               id: d.id,
               title: d.title,
               category: d.category,
               deliveryTime: meta.deliveryTime || meta.delivery || (Array.isArray(d.tags) && d.tags[0]) || '⚡ 30m Delivery',
-              image: d.image,
+              delivery: meta.deliveryTime || meta.delivery || (Array.isArray(d.tags) && d.tags[0]) || '⚡ 30m Delivery',
+              image: img,
+              image_url: img,
               description: meta.description || meta.desc || d.description || '',
-              client: meta.client || d.designer || 'Verified Client'
+              client: d.client || meta.client || d.designer || 'Verified Client'
             };
           });
           localStorage.setItem('dq_portfolio_items', JSON.stringify(parsed));
@@ -439,22 +453,139 @@ function initCloudPortfolioSync() {
   }, 400);
 }
 
+// Background auto-listener for cloud city addresses sync across all pages
+function initCloudCityAddressesSync() {
+  if (typeof window === 'undefined') return;
+  let attempts = 0;
+  let syncInitialized = false;
+
+  const supabaseUrl = 'https://gzbwvleuuxyidohujibj.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk';
+
+  const applyCityRows = (rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    const map = {};
+    rows.forEach(r => {
+      const k = (r.id || r.key || r.city || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
+      if (k) {
+        const addr = (r.full_address || r.address || '').trim();
+        const ph = (r.phone_number || r.phone || '+91 86024 20897').trim();
+        const nm = (r.city_name || r.name || `${k.charAt(0).toUpperCase() + k.slice(1)} Creative Hub`).trim();
+        map[k] = {
+          id: k,
+          key: k,
+          name: nm,
+          title: nm,
+          address: addr,
+          full_address: addr,
+          phone: ph,
+          phone_number: ph,
+          whatsapp: ph.replace(/[^0-9]/g, ''),
+          landmark: r.state_name || '',
+          cityState: r.state_name || '',
+          state_name: r.state_name || '',
+          email: r.email || `${k}@designquixo.com`,
+          pincode: r.pincode || ''
+        };
+      }
+    });
+    const current = JSON.parse(localStorage.getItem('dq_city_addresses') || '{}');
+    const merged = { ...current, ...map };
+    localStorage.setItem('dq_city_addresses', JSON.stringify(merged));
+    window.dispatchEvent(new CustomEvent('dq_cities_updated', { detail: merged }));
+  };
+
+  const setupCitiesSync = () => {
+    if (syncInitialized) return;
+    const db = getCloudDb();
+    if (db && typeof db.fetchCityAddresses === 'function') {
+      syncInitialized = true;
+      try {
+        if (typeof db.subscribeCityAddresses === 'function') {
+          db.subscribeCityAddresses((liveCities) => {
+            if (liveCities && typeof liveCities === 'object' && Object.keys(liveCities).length > 0) {
+              const current = JSON.parse(localStorage.getItem('dq_city_addresses') || '{}');
+              const merged = { ...current, ...liveCities };
+              localStorage.setItem('dq_city_addresses', JSON.stringify(merged));
+              window.dispatchEvent(new CustomEvent('dq_cities_updated', { detail: merged }));
+            }
+          });
+        }
+        db.fetchCityAddresses().then((liveCities) => {
+          if (liveCities && typeof liveCities === 'object' && Object.keys(liveCities).length > 0) {
+            const current = JSON.parse(localStorage.getItem('dq_city_addresses') || '{}');
+            const merged = { ...current, ...liveCities };
+            localStorage.setItem('dq_city_addresses', JSON.stringify(merged));
+            window.dispatchEvent(new CustomEvent('dq_cities_updated', { detail: merged }));
+          }
+        }).catch(() => {});
+      } catch(e) {}
+    } else {
+      // Direct REST fetch from Supabase (Guaranteed to work in production static hosts)
+      fetch(`${supabaseUrl}/rest/v1/city_addresses?select=*`, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`
+        }
+      })
+      .then(res => res.json())
+      .then(rows => {
+        applyCityRows(rows);
+      })
+      .catch(() => {});
+
+      // Server API fallback if express backend is running
+      fetch('/api/get-city-addresses')
+        .then(res => res.json())
+        .then(sJson => {
+          if (sJson && sJson.success && sJson.addresses && typeof sJson.addresses === 'object') {
+            const current = JSON.parse(localStorage.getItem('dq_city_addresses') || '{}');
+            const merged = { ...current, ...sJson.addresses };
+            localStorage.setItem('dq_city_addresses', JSON.stringify(merged));
+            window.dispatchEvent(new CustomEvent('dq_cities_updated', { detail: merged }));
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
+  setupCitiesSync();
+  const interval = setInterval(() => {
+    attempts++;
+    setupCitiesSync();
+    if (syncInitialized || attempts > 20) {
+      clearInterval(interval);
+    }
+  }, 400);
+}
+
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initCloudServicesSync();
       initCloudReviewsSync();
       initCloudPortfolioSync();
+      initCloudCityAddressesSync();
     });
   } else {
     initCloudServicesSync();
     initCloudReviewsSync();
     initCloudPortfolioSync();
+    initCloudCityAddressesSync();
   }
 }
 
 function syncPortfolioCloud(item) {
   if (typeof window === 'undefined' || !item || !item.id) return;
+  // Direct Server API call
+  try {
+    fetch('/api/save-portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item)
+    }).catch(() => {});
+  } catch(e) {}
+
   const db = getCloudDb();
   if (db && typeof db.savePortfolioItem === 'function') {
     db.savePortfolioItem(item).catch(e => console.warn('Portfolio cloud sync error:', e));
@@ -475,6 +606,15 @@ function syncPortfolioCloud(item) {
 
 function deletePortfolioCloud(itemId) {
   if (typeof window === 'undefined' || !itemId) return;
+  // Direct Server API call
+  try {
+    fetch('/api/delete-portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: itemId })
+    }).catch(() => {});
+  } catch(e) {}
+
   const db = getCloudDb();
   if (db && typeof db.deletePortfolioItem === 'function') {
     db.deletePortfolioItem(itemId).catch(e => console.warn('Portfolio cloud delete error:', e));
@@ -527,37 +667,54 @@ function deleteReviewCloud(itemId) {
 }
 
 function syncCityCloud(cityKey, addressData) {
-  if (typeof window === 'undefined' || !cityKey) return;
-  // Direct Server API call
+  if (typeof window === 'undefined' || !cityKey || !addressData) return;
+  const cleanKey = (cityKey || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
+  const cleanAddress = (addressData.address || addressData.full_address || '').trim();
+  const cleanPhone = (addressData.phone || addressData.phone_number || '+91 86024 20897').trim();
+  const cleanName = (addressData.name || addressData.city_name || `${cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)} Creative Hub`).trim();
+
+  const supabaseUrl = 'https://gzbwvleuuxyidohujibj.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ynd2bGV1dXh5aWRvaHVqaWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDg3ODEsImV4cCI6MjEwNTQ4NDc4MX0.qIvmq3FnjJPkKOcxnvFYS158NxF0GHKvd0PSwP7hECk';
+
+  // 1. Direct Supabase REST Upsert (Ensures cloud persistence on ANY domain/host)
+  try {
+    fetch(`${supabaseUrl}/rest/v1/city_addresses`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+      },
+      body: JSON.stringify({
+        id: cleanKey,
+        city_name: cleanName,
+        full_address: cleanAddress,
+        phone_number: cleanPhone,
+        email: `${cleanKey}@designquixo.com`
+      })
+    }).catch(e => console.warn('Supabase REST city sync warning:', e));
+  } catch(e) {}
+
+  // 2. Direct Server API call if backend is mounted
   try {
     fetch('/api/save-city-address', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        key: cityKey,
-        city: cityKey,
-        address: addressData.address || '',
-        phone: addressData.phone || '+91 86024 20897',
-        name: addressData.name || ''
+        key: cleanKey,
+        city: cleanKey,
+        address: cleanAddress,
+        phone: cleanPhone,
+        name: cleanName
       })
     }).catch(() => {});
   } catch(e) {}
 
+  // 3. Supabase client service if available
   const db = getCloudDb();
   if (db && typeof db.saveCityAddress === 'function') {
-    db.saveCityAddress(cityKey, addressData).catch(e => console.warn('City cloud sync error:', e));
-  } else {
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      const lateDb = getCloudDb();
-      if (lateDb && typeof lateDb.saveCityAddress === 'function') {
-        clearInterval(interval);
-        lateDb.saveCityAddress(cityKey, addressData).catch(e => console.warn('Delayed city cloud sync error:', e));
-      } else if (attempts > 20) {
-        clearInterval(interval);
-      }
-    }, 400);
+    db.saveCityAddress(cleanKey, addressData).catch(e => console.warn('City cloud sync error:', e));
   }
 }
 
@@ -977,33 +1134,77 @@ window.DQStore = {
   },
 
   getCityAddresses() {
+    let result = { ...this.getDefaultCityAddresses() };
     try {
       const stored = localStorage.getItem('dq_city_addresses');
       if (stored) {
         const parsed = JSON.parse(stored);
-        return { ...this.getDefaultCityAddresses(), ...parsed };
+        if (parsed && typeof parsed === 'object') {
+          Object.keys(parsed).forEach(k => {
+            const item = parsed[k];
+            if (item && typeof item === 'object') {
+              const def = result[k] || {};
+              const addr = (item.address || item.full_address || def.address || def.full_address || '').trim();
+              const ph = (item.phone || item.phone_number || def.phone || '+91 86024 20897').trim();
+              const nm = (item.name || item.city_name || def.name || `${k.charAt(0).toUpperCase() + k.slice(1)} Creative Hub`).trim();
+              result[k] = {
+                ...def,
+                ...item,
+                id: k,
+                key: k,
+                name: nm,
+                title: nm,
+                address: addr,
+                full_address: addr,
+                phone: ph,
+                phone_number: ph,
+                whatsapp: ph.replace(/[^0-9]/g, '')
+              };
+            }
+          });
+        }
       }
     } catch(e) {}
-    return this.getDefaultCityAddresses();
+    return result;
   },
 
   getCityAddress(cityKey) {
     const addresses = this.getCityAddresses();
     const cleanKey = (cityKey || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
-    return addresses[cleanKey] || addresses['indore'] || {
+    const item = addresses[cleanKey] || addresses['indore'] || {
       name: `${(cityKey || 'City').toUpperCase()} Design Hub`,
       address: `Express Creative Dispatch Center, Commercial Area, ${cityKey || 'Local Hub'}`,
+      full_address: `Express Creative Dispatch Center, Commercial Area, ${cityKey || 'Local Hub'}`,
       landmark: 'Main Commercial Center',
       phone: '+91 86024 20897',
       whatsapp: '918602420897',
       hours: 'Open Daily 9:00 AM - 11:30 PM'
     };
+    if (!item.address && item.full_address) item.address = item.full_address;
+    if (!item.full_address && item.address) item.full_address = item.address;
+    return item;
   },
 
   saveCityAddress(cityKey, addressData) {
     const cleanKey = (cityKey || '').toString().toLowerCase().trim().replace(/\s+/g, '-');
     const all = this.getCityAddresses();
-    all[cleanKey] = { ...all[cleanKey], ...addressData };
+    const cleanAddr = (addressData.address || addressData.full_address || '').trim();
+    const cleanPh = (addressData.phone || addressData.phone_number || '+91 86024 20897').trim();
+    const cleanNm = (addressData.name || addressData.city_name || `${cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)} Creative Hub`).trim();
+    
+    all[cleanKey] = {
+      ...all[cleanKey],
+      ...addressData,
+      id: cleanKey,
+      key: cleanKey,
+      name: cleanNm,
+      title: cleanNm,
+      address: cleanAddr,
+      full_address: cleanAddr,
+      phone: cleanPh,
+      phone_number: cleanPh,
+      whatsapp: cleanPh.replace(/[^0-9]/g, '')
+    };
     localStorage.setItem('dq_city_addresses', JSON.stringify(all));
     window.dispatchEvent(new CustomEvent('dq_cities_updated', { detail: all }));
     syncCityCloud(cleanKey, all[cleanKey]);
@@ -1868,11 +2069,17 @@ window.DQStore = {
   service.checkAndAlertNewJobs = function(jobsList, panelName = "dashboard") {
     if (!Array.isArray(jobsList) || jobsList.length === 0) return;
 
-    let snapshotMap = {};
+    // Bell notification is strictly reserved for Admin and Designer workstations
+    const pLower = (panelName || "").toLowerCase();
+    const isAuthorizedPanel = pLower.includes("admin") || pLower.includes("designer") || pLower.includes("workstation");
+    if (!isAuthorizedPanel) return;
+
+    // Load persistent set of job IDs that have ALREADY triggered the sound alert
+    let alertedJobsMap = {};
     try {
-      snapshotMap = JSON.parse(localStorage.getItem("dq_sound_job_snapshots") || "{}");
+      alertedJobsMap = JSON.parse(localStorage.getItem("dq_sound_alerted_job_ids") || "{}");
     } catch(e) {
-      snapshotMap = {};
+      alertedJobsMap = {};
     }
 
     let unackedJobs = [];
@@ -1880,10 +2087,22 @@ window.DQStore = {
       unackedJobs = JSON.parse(localStorage.getItem("dq_unacknowledged_sound_jobs") || "[]");
     } catch(e) {}
 
-    let isInitialColdLoad = Object.keys(snapshotMap).length === 0;
-    let updatedJob = null;
-    let updateType = "Job Alert";
-    const now = Date.now();
+    // On cold load: mark all existing jobs as already known/alerted so we NEVER ring on page refresh/open
+    const isColdLoad = Object.keys(alertedJobsMap).length === 0;
+    if (isColdLoad) {
+      jobsList.forEach(job => {
+        if (!job) return;
+        const rawId = (job.id || job.jobId || "").toString().trim();
+        const normId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(rawId) : rawId.toUpperCase();
+        if (normId) alertedJobsMap[normId] = true;
+      });
+      try {
+        localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedJobsMap));
+      } catch(e) {}
+      return; // Do not ring on initial cold load!
+    }
+
+    let newArrivedJob = null;
 
     jobsList.forEach(job => {
       if (!job) return;
@@ -1891,43 +2110,35 @@ window.DQStore = {
       if (!rawId) return;
       const normId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(rawId) : rawId.toUpperCase();
 
-      const st = (job.status || "Pending").toString();
-      const completed = job.completed === true || st.toLowerCase().includes("completed") || st.toLowerCase().includes("delivered");
-      const acceptedBy = Array.isArray(job.acceptedBy) ? job.acceptedBy.join(",") : (job.acceptedBy || "");
-      const revisionCount = Array.isArray(job.revisionHistory) ? job.revisionHistory.length : 0;
-      
-      const currentSignature = `${st}_${completed}_${acceptedBy}_${revisionCount}`;
-      const previousSignature = snapshotMap[normId];
+      const st = (job.status || "Pending").toString().trim();
+      const isPending = st === "Pending" || st.toLowerCase() === "pending";
+      const isUnacked = unackedJobs.includes(normId) || unackedJobs.includes(rawId);
+      const alreadyAlerted = !!alertedJobsMap[normId];
 
-      const rawCreated = job.createdAt || job.created_at || job.createdat;
-      const createdAtMs = rawCreated ? new Date(rawCreated).getTime() : 0;
-      const isRecentlyCreated = createdAtMs > 0 && (now - createdAtMs < 300000);
-      const isUnacknowledged = unackedJobs.includes(normId) || unackedJobs.includes(rawId);
-
-      if (!previousSignature) {
-        snapshotMap[normId] = currentSignature;
-        if (!isInitialColdLoad || isRecentlyCreated || isUnacknowledged) {
-          updatedJob = job;
-          updateType = "New Job Uploaded";
-        }
-      } else if (previousSignature !== currentSignature) {
-        snapshotMap[normId] = currentSignature;
-        updatedJob = job;
-        updateType = "Job Updated: " + st;
-      } else if (isUnacknowledged) {
-        updatedJob = job;
-        updateType = "New Job Uploaded";
+      // ONLY ring when a NEW job arrives in the dashboard (status is Pending and not yet alerted, or unacked)
+      if (!alreadyAlerted && (isPending || isUnacked)) {
+        alertedJobsMap[normId] = true;
+        newArrivedJob = job;
       }
     });
 
+    // Save updated alerted map
     try {
-      localStorage.setItem("dq_sound_job_snapshots", JSON.stringify(snapshotMap));
+      localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedJobsMap));
     } catch(e) {}
 
-    if (updatedJob) {
-      console.log("[DQSoundService] 🔔 Job Update detected (#" + updatedJob.id + " - " + updateType + ") in " + panelName + "! Playing alert 5 times...");
+    // Clear unacknowledged jobs queue so it never triggers repeatedly
+    if (unackedJobs.length > 0) {
+      try {
+        localStorage.setItem("dq_unacknowledged_sound_jobs", "[]");
+      } catch(e) {}
+    }
+
+    // Play chime ONLY once for the newly arrived job
+    if (newArrivedJob) {
+      console.log("[DQSoundService] 🔔 New Job arrived in dashboard (#" + newArrivedJob.id + ") on " + panelName + "! Playing bell chime...");
       this.playNewJobChime(5);
-      this.showNewJobBanner(updatedJob, updateType);
+      this.showNewJobBanner(newArrivedJob, "New Job Received");
     }
   };
 
@@ -1955,10 +2166,16 @@ window.DQStore = {
           if (event && event.data) {
             const data = event.data;
             console.log("[DQSoundService] ⚡ Realtime Broadcast received on " + panelName + ":", data);
-            if (data.type === "NEW_JOB" || data.type === "JOB_UPDATE") {
-              this.playNewJobChime(5);
-              if (data.job) {
-                this.showNewJobBanner(data.job, data.type === "NEW_JOB" ? "New Job Alert" : "Job Updated");
+            if (data.type === "NEW_JOB" && data.job) {
+              const jId = (data.job.id || data.job.jobId || "").toString().trim();
+              const nId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(jId) : jId.toUpperCase();
+              let alertedMap = {};
+              try { alertedMap = JSON.parse(localStorage.getItem("dq_sound_alerted_job_ids") || "{}"); } catch(e) {}
+              if (!alertedMap[nId]) {
+                alertedMap[nId] = true;
+                try { localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedMap)); } catch(e) {}
+                this.playNewJobChime(5);
+                this.showNewJobBanner(data.job, "New Job Alert");
               }
             }
           }
@@ -1988,8 +2205,15 @@ window.DQStore = {
         try {
           const alertData = JSON.parse(e.newValue || "{}");
           if (alertData && alertData.id) {
-            this.playNewJobChime(5);
-            this.showNewJobBanner(alertData, "New Job Alert");
+            const nId = (window.DQStore && window.DQStore.normalizeJobId) ? window.DQStore.normalizeJobId(alertData.id) : alertData.id.toString().toUpperCase();
+            let alertedMap = {};
+            try { alertedMap = JSON.parse(localStorage.getItem("dq_sound_alerted_job_ids") || "{}"); } catch(e) {}
+            if (!alertedMap[nId]) {
+              alertedMap[nId] = true;
+              try { localStorage.setItem("dq_sound_alerted_job_ids", JSON.stringify(alertedMap)); } catch(e) {}
+              this.playNewJobChime(5);
+              this.showNewJobBanner(alertData, "New Job Alert");
+            }
           }
         } catch(err) {}
       }
@@ -2002,7 +2226,7 @@ window.DQStore = {
           this.checkAndAlertNewJobs(currentJobs, panelName);
         }
       } catch(e) {}
-    }, 2500);
+    }, 4000);
 
     const hookSupabase = () => {
       const db = window.DQSupabase || window.DQFirebase;
