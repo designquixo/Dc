@@ -620,8 +620,6 @@ function deletePortfolioCloud(itemId) {
     db.deletePortfolioItem(itemId).catch(e => console.warn('Portfolio cloud delete error:', e));
   }
 }
-  }
-}
 
 function syncReviewCloud(item) {
   if (typeof window === 'undefined' || !item || !item.id) return;
