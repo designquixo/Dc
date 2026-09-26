@@ -659,12 +659,12 @@ export const AgreementService = {
     y = wrapAndDrawText(page3, sec12Text, margin, y, contentWidth, 8.6, fontRegular, rgb(0.22, 0.26, 0.32), 12);
     y -= 8;
 
-    // 13. Acceptance
-    page3.drawText('13. Acceptance', { x: margin, y, size: 11.5, font: fontBold, color: rgb(0.08, 0.12, 0.22) });
-    y -= 15;
-    const sec13Text = 'By clicking "Submit Creator Application," checking the acceptance box during onboarding, or accepting any Job Brief on the Platform, the Creator confirms that they have read, understood, and agree to be bound by all terms of this Agreement.';
-    y = wrapAndDrawText(page3, sec13Text, margin, y, contentWidth, 8.6, fontRegular, rgb(0.22, 0.26, 0.32), 12);
+    // 13. Acceptance & DPDP Act 2026 Statutory Consent
+    page3.drawText('13. Acceptance & DPDP Act 2026 Statutory Consent', { x: margin, y, size: 10.5, font: fontBold, color: rgb(0.08, 0.12, 0.22) });
     y -= 14;
+    const sec13Text = 'By clicking "Submit Creator Application," checking the acceptance box during onboarding, or accepting any Job Brief on the Platform, the Creator confirms that they have read, understood, and agree to be bound by all terms of this Agreement and provide explicit, free, specific, informed, and unconditional consent under the Digital Personal Data Protection (DPDP) Act, 2023 / 2026 for Design Quixo to process their personal data (Name, WhatsApp/Phone, Email, Skills, Portfolio, and Digital E-Signature strictly for agreement stamping) for creator onboarding, task routing, and platform operations. No bank or financial credentials are collected or stored on this platform.';
+    y = wrapAndDrawText(page3, sec13Text, margin, y, contentWidth, 8.2, fontRegular, rgb(0.22, 0.26, 0.32), 11.5);
+    y -= 12;
 
     // Acceptance Form Grid Area matching the OCR/Screenshot
     // Row 1 Labels
